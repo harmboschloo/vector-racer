@@ -8,23 +8,21 @@ module QuadTreeRaster.Internal exposing
     , getSize
     , init
     , set
-    , withOutOfBoundsValue
     )
 
 import Bitwise
 
 
 type alias Model a =
-    { config : Config a
+    { config : Config
     , values : Node a
     }
 
 
-type alias Config a =
+type alias Config =
     { width : Int
     , height : Int
     , quadSize : Int
-    , outOfBoundsValue : a
     }
 
 
@@ -53,7 +51,6 @@ init size initialValue =
         { width = size.width
         , height = size.height
         , quadSize = initQuadSize size
-        , outOfBoundsValue = initialValue
         }
     , values = Leaf initialValue
     }
@@ -66,13 +63,6 @@ initQuadSize size =
         |> logBase 2
         |> floor
         |> (^) 2
-
-
-withOutOfBoundsValue : a -> Model a -> Model a
-withOutOfBoundsValue outOfBoundsValue { config, values } =
-    { config = { config | outOfBoundsValue = outOfBoundsValue }
-    , values = values
-    }
 
 
 getSize : Model a -> Size
@@ -93,13 +83,13 @@ set x y value model =
         }
 
 
-get : Int -> Int -> Model a -> a
+get : Int -> Int -> Model a -> Maybe a
 get x y model =
     if outOfBounds x y model.config then
-        model.config.outOfBoundsValue
+        Nothing
 
     else
-        getValue x y model.config.quadSize model.values
+        Just (getValue x y model.config.quadSize model.values)
 
 
 updateValue : Int -> Int -> a -> Int -> Node a -> Node a
@@ -204,6 +194,6 @@ getValue x y quadSize node =
             value
 
 
-outOfBounds : Int -> Int -> Config a -> Bool
+outOfBounds : Int -> Int -> Config -> Bool
 outOfBounds x y config =
     x < 0 || y < 0 || x >= config.width || y >= config.height

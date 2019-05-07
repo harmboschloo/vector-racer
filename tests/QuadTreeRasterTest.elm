@@ -10,7 +10,6 @@ type Value
     | B
     | C
     | D
-    | E
 
 
 suite : Test
@@ -24,7 +23,6 @@ suite =
                             { width = 5
                             , height = 10
                             , quadSize = 8
-                            , outOfBoundsValue = A
                             }
                         , values = Leaf A
                         }
@@ -35,7 +33,6 @@ suite =
                         { width = 5
                         , height = 10
                         , quadSize = 8
-                        , outOfBoundsValue = E
                         }
                     , values =
                         Branch
@@ -46,18 +43,18 @@ suite =
                             }
                     }
             in
-            [ Test.test "q1 edge 0 0" (\_ -> Internal.get 0 0 model |> Expect.equal A)
-            , Test.test "q1 edge 1 0" (\_ -> Internal.get 4 0 model |> Expect.equal A)
-            , Test.test "q1 edge 0 1" (\_ -> Internal.get 0 7 model |> Expect.equal A)
-            , Test.test "q1 edge 1 1" (\_ -> Internal.get 4 7 model |> Expect.equal A)
-            , Test.test "q3 edge 0 0" (\_ -> Internal.get 0 8 model |> Expect.equal C)
-            , Test.test "q3 edge 1 0" (\_ -> Internal.get 4 8 model |> Expect.equal C)
-            , Test.test "q3 edge 0 1" (\_ -> Internal.get 0 9 model |> Expect.equal C)
-            , Test.test "q3 edge 1 1" (\_ -> Internal.get 4 9 model |> Expect.equal C)
-            , Test.test "out of bounds left" (\_ -> Internal.get -1 0 model |> Expect.equal E)
-            , Test.test "out of bounds top" (\_ -> Internal.get 0 -1 model |> Expect.equal E)
-            , Test.test "out of bounds right" (\_ -> Internal.get 5 0 model |> Expect.equal E)
-            , Test.test "out of bounds bottom" (\_ -> Internal.get 10 0 model |> Expect.equal E)
+            [ Test.test "q1 edge 0 0" (\_ -> Internal.get 0 0 model |> Expect.equal (Just A))
+            , Test.test "q1 edge 1 0" (\_ -> Internal.get 4 0 model |> Expect.equal (Just A))
+            , Test.test "q1 edge 0 1" (\_ -> Internal.get 0 7 model |> Expect.equal (Just A))
+            , Test.test "q1 edge 1 1" (\_ -> Internal.get 4 7 model |> Expect.equal (Just A))
+            , Test.test "q3 edge 0 0" (\_ -> Internal.get 0 8 model |> Expect.equal (Just C))
+            , Test.test "q3 edge 1 0" (\_ -> Internal.get 4 8 model |> Expect.equal (Just C))
+            , Test.test "q3 edge 0 1" (\_ -> Internal.get 0 9 model |> Expect.equal (Just C))
+            , Test.test "q3 edge 1 1" (\_ -> Internal.get 4 9 model |> Expect.equal (Just C))
+            , Test.test "out of bounds left" (\_ -> Internal.get -1 0 model |> Expect.equal Nothing)
+            , Test.test "out of bounds top" (\_ -> Internal.get 0 -1 model |> Expect.equal Nothing)
+            , Test.test "out of bounds right" (\_ -> Internal.get 5 0 model |> Expect.equal Nothing)
+            , Test.test "out of bounds bottom" (\_ -> Internal.get 10 0 model |> Expect.equal Nothing)
             ]
         , Test.describe "set" <|
             let
@@ -66,7 +63,6 @@ suite =
                         { width = 12
                         , height = 10
                         , quadSize = 8
-                        , outOfBoundsValue = E
                         }
                     , values = Leaf A
                     }

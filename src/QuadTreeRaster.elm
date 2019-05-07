@@ -4,7 +4,6 @@ module QuadTreeRaster exposing
     , getSize
     , init
     , set
-    , withOutOfBoundsValue
     )
 
 import QuadTreeRaster.Internal as Internal exposing (Model, Size)
@@ -19,11 +18,6 @@ init size initialValue =
     Raster (Internal.init size initialValue)
 
 
-withOutOfBoundsValue : a -> Raster a -> Raster a
-withOutOfBoundsValue outOfBoundsValue (Raster model) =
-    Raster (Internal.withOutOfBoundsValue outOfBoundsValue model)
-
-
 getSize : Raster a -> Size
 getSize (Raster model) =
     Internal.getSize model
@@ -34,6 +28,6 @@ set x y value (Raster model) =
     Raster (Internal.set x y value model)
 
 
-get : Int -> Int -> Raster a -> a
+get : Int -> Int -> Raster a -> Maybe a
 get x y (Raster model) =
     Internal.get x y model
