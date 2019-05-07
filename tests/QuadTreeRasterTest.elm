@@ -54,7 +54,7 @@ suite =
             , Test.test "out of bounds left" (\_ -> Internal.get -1 0 model |> Expect.equal Nothing)
             , Test.test "out of bounds top" (\_ -> Internal.get 0 -1 model |> Expect.equal Nothing)
             , Test.test "out of bounds right" (\_ -> Internal.get 5 0 model |> Expect.equal Nothing)
-            , Test.test "out of bounds bottom" (\_ -> Internal.get 10 0 model |> Expect.equal Nothing)
+            , Test.test "out of bounds bottom" (\_ -> Internal.get 0 10 model |> Expect.equal Nothing)
             ]
         , Test.describe "set" <|
             let
@@ -69,32 +69,34 @@ suite =
             in
             [ Test.test "same value leaf"
                 (\_ ->
-                    Internal.set 0 0 A model
+                    model
+                        |> Internal.set 0 0 A
                         |> .values
                         |> Expect.equal (Leaf A)
                 )
-            , Test.test "full branching q1"
+            , Test.test "full branching all quads"
                 (\_ ->
-                    Internal.set 0 0 B model
+                    model
+                        |> Internal.set 5 3 B
                         |> .values
                         |> Expect.equal
                             (Branch
                                 { q1 =
                                     Branch
-                                        { q1 =
+                                        { q1 = Leaf A
+                                        , q2 =
                                             Branch
-                                                { q1 =
+                                                { q1 = Leaf A
+                                                , q2 = Leaf A
+                                                , q3 =
                                                     Branch
-                                                        { q1 = Leaf B
+                                                        { q1 = Leaf A
                                                         , q2 = Leaf A
                                                         , q3 = Leaf A
-                                                        , q4 = Leaf A
+                                                        , q4 = Leaf B
                                                         }
-                                                , q2 = Leaf A
-                                                , q3 = Leaf A
                                                 , q4 = Leaf A
                                                 }
-                                        , q2 = Leaf A
                                         , q3 = Leaf A
                                         , q4 = Leaf A
                                         }
@@ -104,17 +106,41 @@ suite =
                                 }
                             )
                 )
-
-            -- , Test.test "q1 edge 1 0" (\_ -> Internal.get 4 0 model |> Expect.equal A)
-            -- , Test.test "q1 edge 0 1" (\_ -> Internal.get 0 7 model |> Expect.equal A)
-            -- , Test.test "q1 edge 1 1" (\_ -> Internal.get 4 7 model |> Expect.equal A)
-            -- , Test.test "q3 edge 0 0" (\_ -> Internal.get 0 8 model |> Expect.equal C)
-            -- , Test.test "q3 edge 1 0" (\_ -> Internal.get 4 8 model |> Expect.equal C)
-            -- , Test.test "q3 edge 0 1" (\_ -> Internal.get 0 9 model |> Expect.equal C)
-            -- , Test.test "q3 edge 1 1" (\_ -> Internal.get 4 9 model |> Expect.equal C)
-            -- , Test.test "out of bounds left" (\_ -> Internal.get -1 0 model |> Expect.equal E)
-            -- , Test.test "out of bounds top" (\_ -> Internal.get 0 -1 model |> Expect.equal E)
-            -- , Test.test "out of bounds right" (\_ -> Internal.get 5 0 model |> Expect.equal E)
-            -- , Test.test "out of bounds bottom" (\_ -> Internal.get 10 0 model |> Expect.equal E)
+            , Test.test "collapse to root all quads"
+                (\_ ->
+                    model
+                        |> Internal.set 5 3 B
+                        |> Internal.set 5 3 A
+                        |> .values
+                        |> Expect.equal (Leaf A)
+                )
+            , Test.test "out of bounds left"
+                (\_ ->
+                    model
+                        |> Internal.set -1 0 C
+                        |> .values
+                        |> Expect.equal (Leaf A)
+                )
+            , Test.test "out of bounds top"
+                (\_ ->
+                    model
+                        |> Internal.set 0 -1 C
+                        |> .values
+                        |> Expect.equal (Leaf A)
+                )
+            , Test.test "out of bounds right"
+                (\_ ->
+                    model
+                        |> Internal.set 12 0 C
+                        |> .values
+                        |> Expect.equal (Leaf A)
+                )
+            , Test.test "out of bounds bottom"
+                (\_ ->
+                    model
+                        |> Internal.set 0 10 C
+                        |> .values
+                        |> Expect.equal (Leaf A)
+                )
             ]
         ]
