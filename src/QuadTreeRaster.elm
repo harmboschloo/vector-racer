@@ -36,10 +36,17 @@ type alias Size =
 init : Size -> a -> Raster a
 init size initialValue =
     Raster
-        { size = size
+        { size = initSize size
         , quadSize = initQuadSize size
         , root = LeafNode initialValue
         }
+
+
+initSize : Size -> Size
+initSize size =
+    { width = max 0 size.width
+    , height = max 0 size.height
+    }
 
 
 initQuadSize : Size -> Int
@@ -241,7 +248,7 @@ deserialize size tokens =
         root :: [] ->
             Just
                 (Raster
-                    { size = size
+                    { size = initSize size
                     , quadSize = initQuadSize size
                     , root = root
                     }
