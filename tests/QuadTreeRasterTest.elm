@@ -1,6 +1,8 @@
 module QuadTreeRasterTest exposing (suite)
 
+import Dict
 import Expect
+import Fuzz
 import QuadTreeRaster as Raster exposing (Size, Token(..))
 import QuadTreeRaster.Internal exposing (Model, Node(..), Raster(..))
 import Test exposing (Test)
@@ -34,14 +36,45 @@ suite =
                             , root = LeafNode A
                             }
                         )
-        , Test.test "getSize" <|
-            \_ ->
-                Raster.init (Size 5 10) A
-                    |> Raster.getSize
-                    |> Expect.equal
-                        { width = 5
-                        , height = 10
-                        }
+        , Test.describe "size"
+            [ Test.test "init getSize" <|
+                \_ ->
+                    Raster.init (Size 5 10) A
+                        |> Raster.getSize
+                        |> Expect.equal
+                            { width = 5
+                            , height = 10
+                            }
+            , Test.test "init deserialize" <|
+                \_ ->
+                    Raster.deserialize (Size 5 10) [ Leaf A ]
+                        |> Maybe.map Raster.getSize
+                        |> Expect.equal
+                            (Just
+                                { width = 5
+                                , height = 10
+                                }
+                            )
+            , Test.fuzz (Fuzz.map2 Size Fuzz.int Fuzz.int) "init size al least 0x0" <|
+                \fuzzSize ->
+                    Raster.init fuzzSize A
+                        |> Raster.getSize
+                        |> Expect.all
+                            [ .width >> Expect.atLeast 0
+                            , .height >> Expect.atLeast 0
+                            ]
+            , Test.fuzz (Fuzz.map2 Size Fuzz.int Fuzz.int) "deserialize size al least 0x0" <|
+                \fuzzSize ->
+                    Raster.deserialize fuzzSize [ Leaf A ]
+                        |> Maybe.map Raster.getSize
+                        |> Maybe.map
+                            (Expect.all
+                                [ .width >> Expect.atLeast 0
+                                , .height >> Expect.atLeast 0
+                                ]
+                            )
+                        |> Maybe.withDefault (Expect.fail "deserialize failed")
+            ]
         , Test.describe "get" <|
             let
                 raster =
@@ -161,55 +194,104 @@ suite =
                         |> Expect.equal (LeafNode A)
                 )
             ]
-        , Test.test "serialize" <|
-            \_ ->
-                Raster.init (Size 12 10) A
-                    |> Raster.set 5 3 B
-                    |> Raster.serialize
-                    |> Expect.equal
-                        [ Leaf A
-                        , Leaf A
-                        , Leaf A
-                        , Leaf A
-                        , Leaf A
-                        , Leaf A
-                        , Leaf B
-                        , Leaf A
-                        , Leaf A
-                        , Leaf A
-                        , Branch
-                        , Leaf A
-                        , Leaf A
-                        , Branch
-                        , Leaf A
-                        , Branch
-                        , Branch
-                        ]
-        , Test.test "deserialize" <|
-            \_ ->
-                [ Leaf A
-                , Leaf A
-                , Leaf A
-                , Leaf A
-                , Leaf A
-                , Leaf A
-                , Leaf B
-                , Leaf A
-                , Leaf A
-                , Leaf A
-                , Branch
-                , Leaf A
-                , Leaf A
-                , Branch
-                , Leaf A
-                , Branch
-                , Branch
-                ]
-                    |> Raster.deserialize (Size 12 10)
-                    |> Expect.equal
-                        (Just
-                            (Raster.init (Size 12 10) A
-                                |> Raster.set 5 3 B
+        , Test.describe "serialization"
+            [ Test.test "serialize" <|
+                \_ ->
+                    Raster.init (Size 12 10) A
+                        |> Raster.set 5 3 B
+                        |> Raster.serialize
+                        |> Expect.equal
+                            [ Leaf A
+                            , Leaf A
+                            , Leaf A
+                            , Leaf A
+                            , Leaf A
+                            , Leaf A
+                            , Leaf B
+                            , Leaf A
+                            , Leaf A
+                            , Leaf A
+                            , Branch
+                            , Leaf A
+                            , Leaf A
+                            , Branch
+                            , Leaf A
+                            , Branch
+                            , Branch
+                            ]
+            , Test.test "deserialize" <|
+                \_ ->
+                    [ Leaf A
+                    , Leaf A
+                    , Leaf A
+                    , Leaf A
+                    , Leaf A
+                    , Leaf A
+                    , Leaf B
+                    , Leaf A
+                    , Leaf A
+                    , Leaf A
+                    , Branch
+                    , Leaf A
+                    , Leaf A
+                    , Branch
+                    , Leaf A
+                    , Branch
+                    , Branch
+                    ]
+                        |> Raster.deserialize (Size 12 10)
+                        |> Expect.equal
+                            (Just
+                                (Raster.init (Size 12 10) A
+                                    |> Raster.set 5 3 B
+                                )
                             )
+            ]
+        , Test.fuzz rasterValuesFuzzer "set/get values" <|
+            \( size, initialValue, points ) ->
+                Raster.init size initialValue
+                    |> (\raster -> List.foldl (\( ( x, y ), value ) -> Raster.set x y value) raster points)
+                    |> Expect.all
+                        (points
+                            |> Dict.fromList
+                            |> Dict.toList
+                            |> List.map
+                                (\( ( x, y ), value ) ->
+                                    Raster.get x y
+                                        >> Expect.equal
+                                            (if x < 0 || y < 0 || x >= size.width || y >= size.height then
+                                                Nothing
+
+                                             else
+                                                Just value
+                                            )
+                                )
                         )
+        ]
+
+
+rasterValuesFuzzer : Fuzz.Fuzzer ( Size, Value, List ( ( Int, Int ), Value ) )
+rasterValuesFuzzer =
+    Fuzz.tuple3
+        ( Fuzz.map2 Size Fuzz.int Fuzz.int
+        , valueFuzzer
+        , Fuzz.map2 (\point list -> point :: list) pointFuzzer (Fuzz.list pointFuzzer)
+        )
+
+
+pointFuzzer : Fuzz.Fuzzer ( ( Int, Int ), Value )
+pointFuzzer =
+    Fuzz.tuple
+        ( Fuzz.tuple ( Fuzz.int, Fuzz.int )
+        , valueFuzzer
+        )
+
+
+valueFuzzer : Fuzz.Fuzzer Value
+valueFuzzer =
+    Fuzz.oneOf
+        [ Fuzz.constant A
+        , Fuzz.constant B
+        , Fuzz.constant C
+        , Fuzz.constant D
         ]
