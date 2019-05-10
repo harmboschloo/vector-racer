@@ -248,11 +248,11 @@ suite =
                             )
             ]
         , Test.fuzz rasterValuesFuzzer "set/get values" <|
-            \( size, initialValue, points ) ->
+            \( size, initialValue, values ) ->
                 Raster.init size initialValue
-                    |> (\raster -> List.foldl (\( ( x, y ), value ) -> Raster.set x y value) raster points)
+                    |> setRasterValues values
                     |> Expect.all
-                        (points
+                        (values
                             |> Dict.fromList
                             |> Dict.toList
                             |> List.map
@@ -267,7 +267,24 @@ suite =
                                             )
                                 )
                         )
+        , Test.fuzz rasterValuesFuzzer "serialize/deserialize values" <|
+            \( size, initialValue, values ) ->
+                let
+                    raster =
+                        Raster.init size initialValue
+                            |> setRasterValues values
+                in
+                raster
+                    |> Raster.serialize
+                    |> Raster.deserialize size
+                    |> Maybe.map (Expect.equal raster)
+                    |> Maybe.withDefault (Expect.fail "deserialize failed")
         ]
+
+
+setRasterValues : List ( ( Int, Int ), Value ) -> Raster Value -> Raster Value
+setRasterValues values raster =
+    List.foldl (\( ( x, y ), value ) -> Raster.set x y value) raster values
 
 
 rasterValuesFuzzer : Fuzz.Fuzzer ( Size, Value, List ( ( Int, Int ), Value ) )
@@ -275,12 +292,12 @@ rasterValuesFuzzer =
     Fuzz.tuple3
         ( Fuzz.map2 Size Fuzz.int Fuzz.int
         , valueFuzzer
-        , Fuzz.map2 (\point list -> point :: list) pointFuzzer (Fuzz.list pointFuzzer)
+        , Fuzz.map2 (\point list -> point :: list) rasterValue (Fuzz.list rasterValue)
         )
 
 
-pointFuzzer : Fuzz.Fuzzer ( ( Int, Int ), Value )
-pointFuzzer =
+rasterValue : Fuzz.Fuzzer ( ( Int, Int ), Value )
+rasterValue =
     Fuzz.tuple
         ( Fuzz.tuple ( Fuzz.int, Fuzz.int )
         , valueFuzzer
