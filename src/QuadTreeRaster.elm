@@ -12,14 +12,18 @@ module QuadTreeRaster exposing
 
 -}
 
-import Bitwise
 import QuadTreeRaster.Internal as Internal
     exposing
         ( Model
         , Node(..)
         , Quads
         , Raster(..)
+        , initQuadSizes
         )
+
+
+
+-- INIT --
 
 
 type alias Raster a =
@@ -37,7 +41,7 @@ init : Size -> a -> Raster a
 init size initialValue =
     Raster
         { size = initSize size
-        , quadSize = initQuadSize size
+        , quadSizes = initQuadSizes size
         , root = LeafNode initialValue
         }
 
@@ -49,13 +53,8 @@ initSize size =
     }
 
 
-initQuadSize : Size -> Int
-initQuadSize size =
-    max size.width size.height
-        |> toFloat
-        |> logBase 2
-        |> floor
-        |> (^) 2
+
+-- SIZE --
 
 
 {-| -}
@@ -69,6 +68,24 @@ outOfBounds x y size =
     x < 0 || y < 0 || x >= size.width || y >= size.height
 
 
+
+-- SET --
+
+
+type alias SetHelp a =
+    { node : Node a
+    , location : Location
+    , quadSizes : List Int
+    , nodeOperations : List (Node a -> Node a)
+    }
+
+
+type alias Location =
+    { x : Int
+    , y : Int
+    }
+
+
 {-| -}
 set : Int -> Int -> a -> Raster a -> Raster a
 set x y value ((Raster model) as raster) =
@@ -78,9 +95,165 @@ set x y value ((Raster model) as raster) =
     else
         Raster
             { size = model.size
-            , quadSize = model.quadSize
-            , root = updateValue x y value model.quadSize model.root
+            , quadSizes = model.quadSizes
+            , root =
+                setHelp
+                    value
+                    { location =
+                        { x = x
+                        , y = y
+                        }
+                    , quadSizes = model.quadSizes
+                    , node = model.root
+                    , nodeOperations = []
+                    }
             }
+
+
+setHelp : a -> SetHelp a -> Node a
+setHelp value { node, location, quadSizes, nodeOperations } =
+    case quadSizes of
+        [] ->
+            List.foldl (<|) (LeafNode value) nodeOperations
+
+        quadSize :: nextQuadSizes ->
+            case node of
+                BranchNode quads ->
+                    setHelp
+                        value
+                        (updateQuads
+                            quads
+                            location
+                            quadSize
+                            nextQuadSizes
+                            (mergeQuads value :: nodeOperations)
+                        )
+
+                LeafNode leafValue ->
+                    if value == leafValue then
+                        List.foldl (<|) node nodeOperations
+
+                    else
+                        setHelp
+                            value
+                            (updateQuads
+                                { q1 = node
+                                , q2 = node
+                                , q3 = node
+                                , q4 = node
+                                }
+                                location
+                                quadSize
+                                nextQuadSizes
+                                nodeOperations
+                            )
+
+
+updateQuads : Quads a -> Location -> Int -> List Int -> List (Node a -> Node a) -> SetHelp a
+updateQuads quads { x, y } quadSize nextQuadSizes nodeOperations =
+    if x < quadSize then
+        if y < quadSize then
+            { location =
+                { x = x
+                , y = y
+                }
+            , quadSizes = nextQuadSizes
+            , node = quads.q1
+            , nodeOperations =
+                (\node ->
+                    BranchNode
+                        { q1 = node
+                        , q2 = quads.q2
+                        , q3 = quads.q3
+                        , q4 = quads.q4
+                        }
+                )
+                    :: nodeOperations
+            }
+
+        else
+            { location =
+                { x = x
+                , y = y - quadSize
+                }
+            , quadSizes = nextQuadSizes
+            , node = quads.q3
+            , nodeOperations =
+                (\node ->
+                    BranchNode
+                        { q1 = quads.q1
+                        , q2 = quads.q2
+                        , q3 = node
+                        , q4 = quads.q4
+                        }
+                )
+                    :: nodeOperations
+            }
+
+    else if y < quadSize then
+        { location =
+            { x = x - quadSize
+            , y = y
+            }
+        , quadSizes = nextQuadSizes
+        , node = quads.q2
+        , nodeOperations =
+            (\node ->
+                BranchNode
+                    { q1 = quads.q1
+                    , q2 = node
+                    , q3 = quads.q3
+                    , q4 = quads.q4
+                    }
+            )
+                :: nodeOperations
+        }
+
+    else
+        { location =
+            { x = x - quadSize
+            , y = y - quadSize
+            }
+        , quadSizes = nextQuadSizes
+        , node = quads.q4
+        , nodeOperations =
+            (\node ->
+                BranchNode
+                    { q1 = quads.q1
+                    , q2 = quads.q2
+                    , q3 = quads.q3
+                    , q4 = node
+                    }
+            )
+                :: nodeOperations
+        }
+
+
+mergeQuads : a -> Node a -> Node a
+mergeQuads value node =
+    case node of
+        BranchNode quads ->
+            let
+                mergeNode =
+                    LeafNode value
+            in
+            if
+                (quads.q1 == mergeNode)
+                    && (quads.q2 == mergeNode)
+                    && (quads.q3 == mergeNode)
+                    && (quads.q4 == mergeNode)
+            then
+                mergeNode
+
+            else
+                node
+
+        LeafNode _ ->
+            node
+
+
+
+-- GET --
 
 
 {-| -}
@@ -90,111 +263,33 @@ get x y (Raster model) =
         Nothing
 
     else
-        Just (getValue x y model.quadSize model.root)
+        getValue x y model.quadSizes model.root
 
 
-{-| FIXME tail-calls
--}
-updateValue : Int -> Int -> a -> Int -> Node a -> Node a
-updateValue x y value quadSize node =
-    if quadSize == 0 then
-        LeafNode value
-
-    else
-        case node of
-            BranchNode quads ->
-                let
-                    newNode =
-                        updateQuadValue x y value quadSize quads
-                in
-                case newNode of
-                    BranchNode newQuads ->
-                        if
-                            (newQuads.q1 == LeafNode value)
-                                && (newQuads.q2 == LeafNode value)
-                                && (newQuads.q3 == LeafNode value)
-                                && (newQuads.q4 == LeafNode value)
-                        then
-                            LeafNode value
-
-                        else
-                            newNode
-
-                    LeafNode _ ->
-                        newNode
-
-            LeafNode leafValue ->
-                if value == leafValue then
-                    node
-
-                else
-                    updateQuadValue
-                        x
-                        y
-                        value
-                        quadSize
-                        { q1 = node
-                        , q2 = node
-                        , q3 = node
-                        , q4 = node
-                        }
-
-
-updateQuadValue : Int -> Int -> a -> Int -> Quads a -> Node a
-updateQuadValue x y value quadSize quads =
-    if x < quadSize then
-        if y < quadSize then
-            BranchNode
-                { q1 = updateValue x y value (Bitwise.shiftRightBy 1 quadSize) quads.q1
-                , q2 = quads.q2
-                , q3 = quads.q3
-                , q4 = quads.q4
-                }
-
-        else
-            BranchNode
-                { q1 = quads.q1
-                , q2 = quads.q2
-                , q3 = updateValue x (y - quadSize) value (Bitwise.shiftRightBy 1 quadSize) quads.q3
-                , q4 = quads.q4
-                }
-
-    else if y < quadSize then
-        BranchNode
-            { q1 = quads.q1
-            , q2 = updateValue (x - quadSize) y value (Bitwise.shiftRightBy 1 quadSize) quads.q2
-            , q3 = quads.q3
-            , q4 = quads.q4
-            }
-
-    else
-        BranchNode
-            { q1 = quads.q1
-            , q2 = quads.q2
-            , q3 = quads.q3
-            , q4 = updateValue (x - quadSize) (y - quadSize) value (Bitwise.shiftRightBy 1 quadSize) quads.q4
-            }
-
-
-getValue : Int -> Int -> Int -> Node a -> a
-getValue x y quadSize node =
+getValue : Int -> Int -> List Int -> Node a -> Maybe a
+getValue x y quadSizes node =
     case node of
         BranchNode quads ->
-            if x < quadSize then
-                if y < quadSize then
-                    getValue x y (Bitwise.shiftRightBy 1 quadSize) quads.q1
+            case quadSizes of
+                [] ->
+                    Nothing
 
-                else
-                    getValue x (y - quadSize) (Bitwise.shiftRightBy 1 quadSize) quads.q3
+                quadSize :: nextQuadSizes ->
+                    if x < quadSize then
+                        if y < quadSize then
+                            getValue x y nextQuadSizes quads.q1
 
-            else if y < quadSize then
-                getValue (x - quadSize) y (Bitwise.shiftRightBy 1 quadSize) quads.q2
+                        else
+                            getValue x (y - quadSize) nextQuadSizes quads.q3
 
-            else
-                getValue (x - quadSize) (y - quadSize) (Bitwise.shiftRightBy 1 quadSize) quads.q4
+                    else if y < quadSize then
+                        getValue (x - quadSize) y nextQuadSizes quads.q2
+
+                    else
+                        getValue (x - quadSize) (y - quadSize) nextQuadSizes quads.q4
 
         LeafNode value ->
-            value
+            Just value
 
 
 
@@ -205,12 +300,6 @@ getValue x y quadSize node =
 type Token a
     = Branch
     | Leaf a
-
-
-type alias DeserializeHelp a =
-    { lastNodes : List (Node a)
-    , nextTokens : List (Token a)
-    }
 
 
 {-| -}
@@ -238,18 +327,15 @@ serializeHelp node nextNodes result =
 deserialize : Size -> List (Token a) -> Maybe (Raster a)
 deserialize size tokens =
     let
-        { lastNodes } =
-            deserializeHelp
-                { lastNodes = []
-                , nextTokens = tokens
-                }
+        ( _, lastNodes ) =
+            deserializeHelp ( tokens, [] )
     in
     case lastNodes of
         root :: [] ->
             Just
                 (Raster
                     { size = initSize size
-                    , quadSize = initQuadSize size
+                    , quadSizes = initQuadSizes size
                     , root = root
                     }
                 )
@@ -258,36 +344,24 @@ deserialize size tokens =
             Nothing
 
 
-deserializeHelp : DeserializeHelp a -> DeserializeHelp a
-deserializeHelp result =
-    case result.nextTokens of
+deserializeHelp : ( List (Token a), List (Node a) ) -> ( List (Token a), List (Node a) )
+deserializeHelp ( nextTokens, lastNodes ) =
+    case nextTokens of
         [] ->
-            result
+            ( [], lastNodes )
 
         token :: remainingTokens ->
             case token of
                 Branch ->
-                    case result.lastNodes of
+                    case lastNodes of
                         q1 :: q2 :: q3 :: q4 :: remainingNodes ->
                             deserializeHelp
-                                { lastNodes =
-                                    BranchNode
-                                        { q1 = q1
-                                        , q2 = q2
-                                        , q3 = q3
-                                        , q4 = q4
-                                        }
-                                        :: remainingNodes
-                                , nextTokens = remainingTokens
-                                }
+                                ( remainingTokens
+                                , BranchNode { q1 = q1, q2 = q2, q3 = q3, q4 = q4 } :: remainingNodes
+                                )
 
                         _ ->
-                            { lastNodes = []
-                            , nextTokens = []
-                            }
+                            ( [], [] )
 
                 Leaf value ->
-                    deserializeHelp
-                        { lastNodes = LeafNode value :: result.lastNodes
-                        , nextTokens = remainingTokens
-                        }
+                    deserializeHelp ( remainingTokens, LeafNode value :: lastNodes )

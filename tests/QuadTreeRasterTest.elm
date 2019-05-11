@@ -1,10 +1,11 @@
 module QuadTreeRasterTest exposing (suite)
 
+import Bitwise
 import Dict
 import Expect
 import Fuzz
 import QuadTreeRaster as Raster exposing (Size, Token(..))
-import QuadTreeRaster.Internal exposing (Model, Node(..), Raster(..))
+import QuadTreeRaster.Internal as Internal exposing (Model, Node(..), Raster(..))
 import Test exposing (Test)
 
 
@@ -32,7 +33,7 @@ suite =
                                 { width = 5
                                 , height = 10
                                 }
-                            , quadSize = 8
+                            , quadSizes = [ 8, 4, 2, 1 ]
                             , root = LeafNode A
                             }
                         )
@@ -55,7 +56,7 @@ suite =
                                 , height = 10
                                 }
                             )
-            , Test.fuzz (Fuzz.map2 Size Fuzz.int Fuzz.int) "init size al least 0x0" <|
+            , Test.fuzz (Fuzz.map2 Size Fuzz.int Fuzz.int) "init size at least 0x0" <|
                 \fuzzSize ->
                     Raster.init fuzzSize A
                         |> Raster.getSize
@@ -63,7 +64,7 @@ suite =
                             [ .width >> Expect.atLeast 0
                             , .height >> Expect.atLeast 0
                             ]
-            , Test.fuzz (Fuzz.map2 Size Fuzz.int Fuzz.int) "deserialize size al least 0x0" <|
+            , Test.fuzz (Fuzz.map2 Size Fuzz.int Fuzz.int) "deserialize size at least 0x0" <|
                 \fuzzSize ->
                     Raster.deserialize fuzzSize [ Leaf A ]
                         |> Maybe.map Raster.getSize
@@ -75,6 +76,63 @@ suite =
                             )
                         |> Maybe.withDefault (Expect.fail "deserialize failed")
             ]
+        , Test.describe "quad size"
+            [ Test.test "init not power of 2" <|
+                \_ ->
+                    Internal.initQuadSizes (Size 5 10)
+                        |> Expect.equal [ 8, 4, 2, 1 ]
+            , Test.test "init power of 2" <|
+                \_ ->
+                    Internal.initQuadSizes (Size 4 16)
+                        |> Expect.equal [ 8, 4, 2, 1 ]
+            , Test.test "init 0" <|
+                \_ ->
+                    Internal.initQuadSizes (Size 0 0)
+                        |> Expect.equal []
+            , Test.test "init negative" <|
+                \_ ->
+                    Internal.initQuadSizes (Size -1 -1)
+                        |> Expect.equal []
+            , Test.test "init  1073741824" <|
+                \_ ->
+                    Internal.initQuadSizes (Size 1 1073741824)
+                        |> List.head
+                        |> Expect.equal (Just 536870912)
+            , Test.test "init  2147483648" <|
+                \_ ->
+                    Internal.initQuadSizes (Size 1 2147483648)
+                        |> List.head
+                        |> Expect.equal (Just 1073741824)
+            , Test.test "init  4294967296" <|
+                \_ ->
+                    Internal.initQuadSizes (Size 1 4294967296)
+                        |> List.head
+                        |> Expect.equal (Just 2147483648)
+            , Test.test "init  8589934592" <|
+                \_ ->
+                    Internal.initQuadSizes (Size 1 8589934592)
+                        |> List.head
+                        |> Expect.equal (Just 4294967296)
+            , Test.fuzz (Fuzz.map2 Size Fuzz.int Fuzz.int) "init fuzz expect 0 or power of 2" <|
+                \fuzzSize ->
+                    if fuzzSize.width > 0 && fuzzSize.height > 0 then
+                        Internal.initQuadSizes fuzzSize
+                            |> List.head
+                            |> Maybe.map
+                                (Expect.all
+                                    [ Expect.lessThan (max fuzzSize.width fuzzSize.height)
+                                    , \quadSize ->
+                                        Expect.true
+                                            (String.fromInt quadSize ++ " is not power of 2")
+                                            (isPowerOfTwo quadSize)
+                                    ]
+                                )
+                            |> Maybe.withDefault (Expect.fail "empty quad sizes")
+
+                    else
+                        Internal.initQuadSizes fuzzSize
+                            |> Expect.equal []
+            ]
         , Test.describe "get" <|
             let
                 raster =
@@ -83,7 +141,7 @@ suite =
                             { width = 5
                             , height = 10
                             }
-                        , quadSize = 8
+                        , quadSizes = [ 8, 4, 2, 1 ]
                         , root =
                             BranchNode
                                 { q1 = LeafNode A
@@ -114,7 +172,7 @@ suite =
                             { width = 12
                             , height = 10
                             }
-                        , quadSize = 8
+                        , quadSizes = [ 8, 4, 2, 1 ]
                         , root = LeafNode A
                         }
             in
@@ -247,7 +305,7 @@ suite =
                                 )
                             )
             ]
-        , Test.fuzz rasterValuesFuzzer "set/get values" <|
+        , Test.fuzz rasterValuesFuzzer "set/get fuzz values" <|
             \( size, initialValue, values ) ->
                 Raster.init size initialValue
                     |> setRasterValues values
@@ -267,7 +325,7 @@ suite =
                                             )
                                 )
                         )
-        , Test.fuzz rasterValuesFuzzer "serialize/deserialize values" <|
+        , Test.fuzz rasterValuesFuzzer "serialize/deserialize fuzz values" <|
             \( size, initialValue, values ) ->
                 let
                     raster =
@@ -280,6 +338,11 @@ suite =
                     |> Maybe.map (Expect.equal raster)
                     |> Maybe.withDefault (Expect.fail "deserialize failed")
         ]
+
+
+isPowerOfTwo : Int -> Bool
+isPowerOfTwo n =
+    n > 0 && (Bitwise.and n (n - 1) == 0)
 
 
 setRasterValues : List ( ( Int, Int ), Value ) -> Raster Value -> Raster Value

@@ -3,6 +3,7 @@ module QuadTreeRaster.Internal exposing
     , Node(..)
     , Quads
     , Raster(..)
+    , initQuadSizes
     )
 
 
@@ -12,7 +13,7 @@ type Raster a
 
 type alias Model a =
     { size : Size
-    , quadSize : Int
+    , quadSizes : List Int
     , root : Node a
     }
 
@@ -34,3 +35,21 @@ type alias Quads a =
     , q3 : Node a
     , q4 : Node a
     }
+
+
+initQuadSizes : Size -> List Int
+initQuadSizes size =
+    if size.width > 0 && size.height > 0 then
+        initQuadSizesHelp (max size.width size.height) 1 []
+
+    else
+        []
+
+
+initQuadSizesHelp : Int -> Int -> List Int -> List Int
+initQuadSizesHelp size quadSize quadSizes =
+    if quadSize < size then
+        initQuadSizesHelp size (quadSize * 2) (quadSize :: quadSizes)
+
+    else
+        quadSizes
