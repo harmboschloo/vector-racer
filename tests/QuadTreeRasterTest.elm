@@ -306,8 +306,8 @@ suite =
                             )
             ]
         , Test.fuzz rasterValuesFuzzer "set/get fuzz values" <|
-            \( size, initialValue, values ) ->
-                Raster.init size initialValue
+            \( raster, size, values ) ->
+                raster
                     |> setRasterValues values
                     |> Expect.all
                         (values
@@ -315,22 +315,22 @@ suite =
                             |> Dict.toList
                             |> List.map
                                 (\( ( x, y ), value ) ->
-                                    Raster.get x y
-                                        >> Expect.equal
-                                            (if x < 0 || y < 0 || x >= size.width || y >= size.height then
+                                    let
+                                        expectedValue =
+                                            if x < 0 || y < 0 || x >= size.width || y >= size.height then
                                                 Nothing
 
-                                             else
+                                            else
                                                 Just value
-                                            )
+                                    in
+                                    Raster.get x y >> Expect.equal expectedValue
                                 )
                         )
         , Test.fuzz rasterValuesFuzzer "serialize/deserialize fuzz values" <|
-            \( size, initialValue, values ) ->
+            \( emptyRaster, size, values ) ->
                 let
                     raster =
-                        Raster.init size initialValue
-                            |> setRasterValues values
+                        setRasterValues values emptyRaster
                 in
                 raster
                     |> Raster.serialize
@@ -350,17 +350,22 @@ setRasterValues values raster =
     List.foldl (\( ( x, y ), value ) -> Raster.set x y value) raster values
 
 
-rasterValuesFuzzer : Fuzz.Fuzzer ( Size, Value, List ( ( Int, Int ), Value ) )
+rasterValuesFuzzer : Fuzz.Fuzzer ( Raster Value, Size, List ( ( Int, Int ), Value ) )
 rasterValuesFuzzer =
-    Fuzz.tuple3
-        ( Fuzz.map2 Size Fuzz.int Fuzz.int
-        , valueFuzzer
-        , Fuzz.map2 (\point list -> point :: list) rasterValue (Fuzz.list rasterValue)
-        )
+    Fuzz.map2 (\raster values -> ( raster, Raster.getSize raster, values ))
+        rasterFuzzer
+        (Fuzz.map2 (::) rasterValueFuzzer (Fuzz.list rasterValueFuzzer))
 
 
-rasterValue : Fuzz.Fuzzer ( ( Int, Int ), Value )
-rasterValue =
+rasterFuzzer : Fuzz.Fuzzer (Raster Value)
+rasterFuzzer =
+    Fuzz.map2 Raster.init
+        (Fuzz.map2 Size Fuzz.int Fuzz.int)
+        valueFuzzer
+
+
+rasterValueFuzzer : Fuzz.Fuzzer ( ( Int, Int ), Value )
+rasterValueFuzzer =
     Fuzz.tuple
         ( Fuzz.tuple ( Fuzz.int, Fuzz.int )
         , valueFuzzer

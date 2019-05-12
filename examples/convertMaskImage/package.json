@@ -1,0 +1,12 @@
+{
+  "name": "convertmaskimage",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "author": "Harm Boschloo",
+  "license": "BSD-3-Clause",
+  "private": true,
+  "dependencies": {
+    "upng-js": "^2.1.0"
+  }
+}

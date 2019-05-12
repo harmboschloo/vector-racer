@@ -1,6 +1,7 @@
 module QuadTreeRaster exposing
     ( Raster, Size, init
     , set, get, getSize
+    , foldl, foldr
     , Token(..), serialize, deserialize
     )
 
@@ -8,6 +9,7 @@ module QuadTreeRaster exposing
 
 @docs Raster, Size, init
 @docs set, get, getSize
+@docs foldl, foldr
 @docs Token, serialize, deserialize
 
 -}
@@ -93,21 +95,25 @@ set x y value ((Raster model) as raster) =
         raster
 
     else
-        Raster
-            { size = model.size
+        Raster (setValue x y value model)
+
+
+setValue : Int -> Int -> a -> Model a -> Model a
+setValue x y value model =
+    { size = model.size
+    , quadSizes = model.quadSizes
+    , root =
+        setHelp
+            value
+            { location =
+                { x = x
+                , y = y
+                }
             , quadSizes = model.quadSizes
-            , root =
-                setHelp
-                    value
-                    { location =
-                        { x = x
-                        , y = y
-                        }
-                    , quadSizes = model.quadSizes
-                    , node = model.root
-                    , nodeOperations = []
-                    }
+            , node = model.root
+            , nodeOperations = []
             }
+    }
 
 
 setHelp : a -> SetHelp a -> Node a
@@ -290,6 +296,50 @@ getValue x y quadSizes node =
 
         LeafNode value ->
             Just value
+
+
+
+-- FOLD --
+
+
+foldl : (a -> b -> b) -> b -> Raster a -> b
+foldl fn acc (Raster model) =
+    foldlHelp fn acc model.root []
+
+
+foldlHelp : (a -> b -> b) -> b -> Node a -> List (Node a) -> b
+foldlHelp fn acc node nextNodes =
+    case node of
+        BranchNode { q1, q2, q3, q4 } ->
+            foldlHelp fn acc q1 (q2 :: q3 :: q4 :: nextNodes)
+
+        LeafNode value ->
+            case nextNodes of
+                [] ->
+                    fn value acc
+
+                nextNode :: otherNextNodes ->
+                    foldlHelp fn (fn value acc) nextNode otherNextNodes
+
+
+foldr : (a -> b -> b) -> b -> Raster a -> b
+foldr fn acc (Raster model) =
+    foldlHelp fn acc model.root []
+
+
+foldrHelp : (a -> b -> b) -> b -> Node a -> List (Node a) -> b
+foldrHelp fn acc node nextNodes =
+    case node of
+        BranchNode { q1, q2, q3, q4 } ->
+            foldrHelp fn acc q4 (q3 :: q2 :: q1 :: nextNodes)
+
+        LeafNode value ->
+            case nextNodes of
+                [] ->
+                    fn value acc
+
+                nextNode :: otherNextNodes ->
+                    foldrHelp fn (fn value acc) nextNode otherNextNodes
 
 
 
