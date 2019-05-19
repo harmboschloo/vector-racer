@@ -1,5 +1,5 @@
 module VectorRacer.Track exposing
-    ( Track, Size, Surface(..), Checkpoint(..)
+    ( Track, Surface(..), Checkpoint(..)
     , getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
     , encode, decode, DecodeError(..)
     , fromMaskBytes, MaskBytesError(..), Color
@@ -12,7 +12,7 @@ module VectorRacer.Track exposing
 
 # Track
 
-@docs Track, Size, Surface, Checkpoint
+@docs Track, Surface, Checkpoint
 @docs getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
 
 
@@ -37,7 +37,7 @@ import Bytes.Decode
 import Json.Decode
 import Json.Encode
 import QuadTreeRaster as Raster exposing (Raster)
-import VectorRacer.Vector as Vector exposing (Position)
+import VectorRacer.Vector as Vector exposing (Position, Size)
 
 
 
@@ -47,13 +47,6 @@ import VectorRacer.Vector as Vector exposing (Position)
 {-| -}
 type Track
     = Track Model
-
-
-{-| -}
-type alias Size =
-    { width : Int
-    , height : Int
-    }
 
 
 type alias Model =
@@ -84,7 +77,11 @@ type Checkpoint
 {-| -}
 getSize : Track -> Size
 getSize (Track model) =
-    Raster.getSize model.surfaces
+    let
+        { width, height } =
+            Raster.getSize model.surfaces
+    in
+    Vector.init width height
 
 
 {-| -}
@@ -130,7 +127,7 @@ encode (Track { surfaces, startPositions }) =
         ]
 
 
-encodeSize : Size -> Json.Encode.Value
+encodeSize : Raster.Size -> Json.Encode.Value
 encodeSize size =
     Json.Encode.object
         [ ( "width", Json.Encode.int size.width )
@@ -195,7 +192,7 @@ type DecodeError
 
 
 type alias TrackDecodeData =
-    { size : Size
+    { size : Raster.Size
     , surfaces : String
     , checkpoits : String
     , startPositions : List Position
@@ -241,14 +238,14 @@ decoder =
         )
 
 
-sizeDecoder : Json.Decode.Decoder Size
+sizeDecoder : Json.Decode.Decoder Raster.Size
 sizeDecoder =
-    Json.Decode.map2 Size
+    Json.Decode.map2 Raster.Size
         (Json.Decode.field "width" Json.Decode.int)
         (Json.Decode.field "height" Json.Decode.int)
 
 
-deserializeSurfaces : Size -> String -> Result DecodeError (Raster Surface)
+deserializeSurfaces : Raster.Size -> String -> Result DecodeError (Raster Surface)
 deserializeSurfaces size surfaces =
     decodeSurfaceTokens (String.toList surfaces) []
         |> Result.andThen
@@ -366,11 +363,16 @@ fromMaskBytes size maskBytes =
             Err BytesDecodeError
 
 
-maskBytesDecoder : Raster.Size -> Bytes.Decode.Decoder MaskBytesResult
+maskBytesDecoder : Size -> Bytes.Decode.Decoder MaskBytesResult
 maskBytesDecoder size =
     Bytes.Decode.loop
         ( 0
-        , { surfaces = Raster.init size Wall
+        , { surfaces =
+                Raster.init
+                    { width = Vector.x size
+                    , height = Vector.y size
+                    }
+                    Wall
           , checkpoints =
                 { checkpoint1 = False
                 , checkpoint2 = False
@@ -429,7 +431,7 @@ maskBytesLoop ( index, { surfaces, checkpoints, startPositions } as data ) =
         Bytes.Decode.succeed (Bytes.Decode.Done (Ok data))
 
 
-indexToPosition : Size -> Int -> Position
+indexToPosition : Raster.Size -> Int -> Position
 indexToPosition { width } index =
     Vector.init (remainderBy width index) (index // width)
 

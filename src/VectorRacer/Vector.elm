@@ -1,41 +1,69 @@
 module VectorRacer.Vector exposing
-    ( Acceleration
-    , Position
-    , Velocity
-    , decoder
-    , encode
-    , init
-    , toString
-    , x
-    , y
+    ( Position, Velocity, Acceleration, Size, Padding
+    , Vector, init, x, y
+    , xToPx, yToPx, toTupleString
+    , encode, decoder
     )
+
+{-|
+
+@docs Position, Velocity, Acceleration, Size, Padding
+@docs Vector, init, x, y
+@docs xToPx, yToPx, toTupleString
+@docs encode, decoder
+
+-}
 
 import Json.Decode
 import Json.Encode
+
+
+
+-- TYPES --
 
 
 type alias Position =
     Vector Pos
 
 
-type alias Velocity =
-    Vector Vel
-
-
-type alias Acceleration =
-    Vector Acc
-
-
 type Pos
     = Pos
+
+
+type alias Velocity =
+    Vector Vel
 
 
 type Vel
     = Vel
 
 
+type alias Acceleration =
+    Vector Acc
+
+
 type Acc
     = Acc
+
+
+type alias Size =
+    Vector Siz
+
+
+type Siz
+    = Siz
+
+
+type alias Padding =
+    Vector Pad
+
+
+type Pad
+    = Pad
+
+
+
+-- VECTOR --
 
 
 type Vector a
@@ -63,8 +91,22 @@ y (Vector vector) =
     vector.y
 
 
-toString : Vector a -> String
-toString (Vector vector) =
+
+-- STRINGS --
+
+
+xToPx : Vector a -> String
+xToPx (Vector vector) =
+    String.fromInt vector.x ++ "px"
+
+
+yToPx : Vector a -> String
+yToPx (Vector vector) =
+    String.fromInt vector.y ++ "px"
+
+
+toTupleString : Vector a -> String
+toTupleString (Vector vector) =
     "(" ++ String.fromInt vector.x ++ "," ++ String.fromInt vector.y ++ ")"
 
 
