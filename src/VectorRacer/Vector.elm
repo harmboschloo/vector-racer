@@ -1,14 +1,18 @@
 module VectorRacer.Vector exposing
-    ( Position, Velocity, Acceleration, Size, Padding
+    ( PositionVector, VelocityVector, AccelerationVector, SizeVector, OffsetVector, ScaleVector
+    , Position, Velocity, Acceleration, Size, Offset, Scale
     , Vector, init, x, y
+    , divideBy
     , xToPx, yToPx, toTupleString
     , encode, decoder
     )
 
 {-|
 
-@docs Position, Velocity, Acceleration, Size, Padding
+@docs PositionVector, VelocityVector, AccelerationVector, SizeVector, OffsetVector, ScaleVector
+@docs Position, Velocity, Acceleration, Size, Offset, Scale
 @docs Vector, init, x, y
+@docs divideBy
 @docs xToPx, yToPx, toTupleString
 @docs encode, decoder
 
@@ -22,44 +26,52 @@ import Json.Encode
 -- TYPES --
 
 
-type alias Position =
-    Vector Pos
+type alias PositionVector =
+    Vector Position
 
 
-type Pos
-    = Pos
+type Position
+    = Position
 
 
-type alias Velocity =
-    Vector Vel
+type alias VelocityVector =
+    Vector Velocity
 
 
-type Vel
-    = Vel
+type Velocity
+    = Velocity
 
 
-type alias Acceleration =
-    Vector Acc
+type alias AccelerationVector =
+    Vector Acceleration
 
 
-type Acc
-    = Acc
+type Acceleration
+    = Acceleration
 
 
-type alias Size =
-    Vector Siz
+type alias SizeVector =
+    Vector Size
 
 
-type Siz
-    = Siz
+type Size
+    = Size
 
 
-type alias Padding =
-    Vector Pad
+type alias OffsetVector =
+    Vector Offset
 
 
-type Pad
-    = Pad
+type Offset
+    = Offset
+
+
+type alias ScaleVector =
+    Vector Scale
+
+
+type Scale
+    = Scale
 
 
 
@@ -89,6 +101,18 @@ x (Vector vector) =
 y : Vector a -> Int
 y (Vector vector) =
     vector.y
+
+
+
+-- MATH --
+
+
+divideBy : Vector a -> Vector b -> Vector c
+divideBy (Vector b) (Vector a) =
+    Vector
+        { x = a.x // b.x
+        , y = a.y // b.y
+        }
 
 
 

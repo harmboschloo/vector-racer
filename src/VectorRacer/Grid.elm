@@ -1,6 +1,6 @@
 module VectorRacer.Grid exposing (Grid, getAnchorPoint, getSpacing, init)
 
-import VectorRacer.Vector exposing (Position)
+import VectorRacer.Vector exposing (PositionVector)
 
 
 type Grid
@@ -8,12 +8,12 @@ type Grid
 
 
 type alias Model =
-    { anchorPoint : Position
+    { anchorPoint : PositionVector
     , spacing : Int
     }
 
 
-init : Position -> Int -> Grid
+init : PositionVector -> Int -> Grid
 init anchorPoint spacing =
     Grid
         { anchorPoint = anchorPoint
@@ -21,7 +21,7 @@ init anchorPoint spacing =
         }
 
 
-getAnchorPoint : Grid -> Position
+getAnchorPoint : Grid -> PositionVector
 getAnchorPoint (Grid model) =
     model.anchorPoint
 

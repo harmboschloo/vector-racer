@@ -1,7 +1,7 @@
 module VectorRacer.Track exposing
     ( Track, Surface(..), Checkpoint(..)
     , getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
-    , encode, decode, DecodeError(..)
+    , encode, decoder, DecodeResult, DecodeError(..)
     , fromMaskBytes, MaskBytesError(..), Color
     , getSurfaces, fromSurfaces
     , SurfacesError(..)
@@ -18,7 +18,7 @@ module VectorRacer.Track exposing
 
 # JSON
 
-@docs encode, decode, DecodeError
+@docs encode, decoder, DecodeResult, DecodeError
 
 
 # Mask
@@ -37,7 +37,7 @@ import Bytes.Decode
 import Json.Decode
 import Json.Encode
 import QuadTreeRaster as Raster exposing (Raster)
-import VectorRacer.Vector as Vector exposing (Position, Size)
+import VectorRacer.Vector as Vector exposing (PositionVector, SizeVector)
 
 
 
@@ -52,7 +52,7 @@ type Track
 type alias Model =
     { surfaces : Raster Surface
     , checkpoints : ( Checkpoint, List Checkpoint )
-    , startPositions : List Position
+    , startPositions : List PositionVector
     }
 
 
@@ -75,7 +75,7 @@ type Checkpoint
 
 
 {-| -}
-getSize : Track -> Size
+getSize : Track -> SizeVector
 getSize (Track model) =
     let
         { width, height } =
@@ -108,7 +108,7 @@ checkpointsTupleToList ( firstCheckpoint, otherCheckpoints ) =
 
 
 {-| -}
-getStartPositions : Track -> List Position
+getStartPositions : Track -> List PositionVector
 getStartPositions (Track model) =
     model.startPositions
 
@@ -184,9 +184,13 @@ encodeCheckpoint checkpoint =
 
 
 {-| -}
+type alias DecodeResult =
+    Result DecodeError Track
+
+
+{-| -}
 type DecodeError
-    = DecodeError Json.Decode.Error
-    | InvalidSurfaceError Char
+    = InvalidSurfaceError Char
     | SurfacesDeserializationError
     | NoCheckpointsError
 
@@ -194,44 +198,42 @@ type DecodeError
 type alias TrackDecodeData =
     { size : Raster.Size
     , surfaces : String
-    , checkpoits : String
-    , startPositions : List Position
+    , startPositions : List PositionVector
     }
 
 
 {-| -}
-decode : Json.Decode.Value -> Result DecodeError Track
-decode value =
-    case Json.Decode.decodeValue decoder value of
-        Ok data ->
-            case deserializeSurfaces data.size data.surfaces of
-                Ok surfaces ->
-                    case findCheckpoints surfaces of
-                        [] ->
-                            Err NoCheckpointsError
+decoder : Json.Decode.Decoder DecodeResult
+decoder =
+    Json.Decode.map decodeTrack dataDecoder
 
-                        firstCheckpoint :: nextCheckpoints ->
-                            Ok
-                                (Track
-                                    { surfaces = surfaces
-                                    , checkpoints = ( firstCheckpoint, nextCheckpoints )
-                                    , startPositions = data.startPositions
-                                    }
-                                )
 
-                Err error ->
-                    Err error
+decodeTrack : TrackDecodeData -> Result DecodeError Track
+decodeTrack data =
+    case deserializeSurfaces data.size data.surfaces of
+        Ok surfaces ->
+            case findCheckpoints surfaces of
+                [] ->
+                    Err NoCheckpointsError
+
+                firstCheckpoint :: nextCheckpoints ->
+                    Ok
+                        (Track
+                            { surfaces = surfaces
+                            , checkpoints = ( firstCheckpoint, nextCheckpoints )
+                            , startPositions = data.startPositions
+                            }
+                        )
 
         Err error ->
-            Err (DecodeError error)
+            Err error
 
 
-decoder : Json.Decode.Decoder TrackDecodeData
-decoder =
-    Json.Decode.map4 TrackDecodeData
+dataDecoder : Json.Decode.Decoder TrackDecodeData
+dataDecoder =
+    Json.Decode.map3 TrackDecodeData
         (Json.Decode.field "size" sizeDecoder)
         (Json.Decode.field "surfaces" Json.Decode.string)
-        (Json.Decode.field "checkpoints" Json.Decode.string)
         (Json.Decode.field "startPositions" (Json.Decode.list Vector.decoder)
             |> Json.Decode.maybe
             |> Json.Decode.map (Maybe.withDefault [])
@@ -327,19 +329,19 @@ type alias MaskBytesResult =
 type alias MaskBytesData =
     { surfaces : Raster Surface
     , checkpoints : Checkpoints
-    , startPositions : List Position
+    , startPositions : List PositionVector
     }
 
 
 {-| -}
 type MaskBytesError
     = BytesDecodeError
-    | InvalidMaskSurfaceError Position Color
+    | InvalidMaskSurfaceError PositionVector Color
     | NoMaskCheckpointsError
 
 
 {-| -}
-fromMaskBytes : Size -> Bytes -> Result MaskBytesError Track
+fromMaskBytes : SizeVector -> Bytes -> Result MaskBytesError Track
 fromMaskBytes size maskBytes =
     case Bytes.Decode.decode (maskBytesDecoder size) maskBytes of
         Just (Ok { surfaces, checkpoints, startPositions }) ->
@@ -363,7 +365,7 @@ fromMaskBytes size maskBytes =
             Err BytesDecodeError
 
 
-maskBytesDecoder : Size -> Bytes.Decode.Decoder MaskBytesResult
+maskBytesDecoder : SizeVector -> Bytes.Decode.Decoder MaskBytesResult
 maskBytesDecoder size =
     Bytes.Decode.loop
         ( 0
@@ -431,12 +433,12 @@ maskBytesLoop ( index, { surfaces, checkpoints, startPositions } as data ) =
         Bytes.Decode.succeed (Bytes.Decode.Done (Ok data))
 
 
-indexToPosition : Raster.Size -> Int -> Position
+indexToPosition : Raster.Size -> Int -> PositionVector
 indexToPosition { width } index =
     Vector.init (remainderBy width index) (index // width)
 
 
-updateMaskSurfaceRaster : Position -> Surface -> Raster Surface -> Raster Surface
+updateMaskSurfaceRaster : PositionVector -> Surface -> Raster Surface -> Raster Surface
 updateMaskSurfaceRaster position surface surfaces =
     Raster.set (Vector.x position) (Vector.y position) surface surfaces
 
@@ -515,11 +517,11 @@ getSurfaces (Track model) =
 {-| -}
 type SurfacesError
     = NoCheckpointSurfacesError
-    | InvalidStartPosition Position
+    | InvalidStartPosition PositionVector
 
 
 {-| -}
-fromSurfaces : Raster Surface -> List Position -> Result SurfacesError Track
+fromSurfaces : Raster Surface -> List PositionVector -> Result SurfacesError Track
 fromSurfaces surfaces startPositions =
     case checkStartPositions startPositions surfaces of
         Just error ->
@@ -540,7 +542,7 @@ fromSurfaces surfaces startPositions =
                         )
 
 
-checkStartPositions : List Position -> Raster Surface -> Maybe SurfacesError
+checkStartPositions : List PositionVector -> Raster Surface -> Maybe SurfacesError
 checkStartPositions startPositions surfaces =
     case startPositions of
         [] ->
