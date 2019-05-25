@@ -1,5 +1,6 @@
 module VectorRacer.Ui.TrackPanel exposing
-    ( TrackPanel
+    ( Size
+    , TrackPanel
     , init
     , setGrid
     , setPanelSize
@@ -8,12 +9,12 @@ module VectorRacer.Ui.TrackPanel exposing
     )
 
 import Element exposing (Element)
+import Quantity
 import Svg exposing (Svg)
 import Svg.Attributes
 import VectorRacer.Grid exposing (Grid)
 import VectorRacer.Pixels as Pixels exposing (Pixels)
 import VectorRacer.Track as Track
-import VectorRacer.Ui as Ui
 import VectorRacer.Vector as Vector exposing (Vector)
 
 
@@ -26,14 +27,26 @@ type TrackPanel
 
 
 type alias Model =
-    { panelSize : Ui.Size
-    , trackSize : Ui.Size
+    { panelSize : Size
+    , trackSize : Size
     , trackImage : String
     , grid : Maybe Grid
-    , offset : Ui.Offset
-    , scale : Ui.Scale
+    , offset : Offset
+    , scale : Scale
     , state : State
     }
+
+
+type alias Size =
+    Vector Int Pixels
+
+
+type alias Offset =
+    Vector Float Pixels
+
+
+type alias Scale =
+    Vector Float Quantity.Unitless
 
 
 type State
@@ -56,8 +69,8 @@ type alias TouchData =
 
 
 init :
-    { panelSize : Ui.Size
-    , trackSize : Ui.Size
+    { panelSize : Size
+    , trackSize : Size
     , trackImage : String
     }
     -> TrackPanel
@@ -78,7 +91,7 @@ setGrid grid (TrackPanel model) =
     TrackPanel { model | grid = grid }
 
 
-setPanelSize : Ui.Size -> TrackPanel -> TrackPanel
+setPanelSize : Size -> TrackPanel -> TrackPanel
 setPanelSize panelSize (TrackPanel model) =
     TrackPanel { model | panelSize = panelSize }
 
@@ -102,33 +115,44 @@ setTrack trackSize trackImage (TrackPanel model) =
 view : TrackPanel -> Element msg
 view (TrackPanel model) =
     let
-        trackMargin =
+        ( width, height ) =
+            Pixels.inPixels model.panelSize
+
+        ( trackMarginX, trackMarginY ) =
             model.trackSize
                 |> Vector.divideByInt (Vector.fromInts 10 10)
-                |> Vector.toFloatVector
+                |> Pixels.inPixels
 
-        trackBorderSize =
-            model.trackSize |> Vector.plus (Pixels.pixels 2 2)
+        ( trackWidth, trackHeight ) =
+            Pixels.inPixels model.trackSize
     in
     Element.html <|
         Svg.svg
-            [ Svg.Attributes.width (Ui.xToPx model.panelSize)
-            , Svg.Attributes.height (Ui.yToPx model.panelSize)
+            [ Svg.Attributes.width (String.fromInt width ++ "px")
+            , Svg.Attributes.height (String.fromInt height ++ "px")
             ]
             [ Svg.g
-                [ Svg.Attributes.transform ("translate" ++ Ui.toTupleString trackMargin)
+                [ Svg.Attributes.transform
+                    (String.join ""
+                        [ "translate("
+                        , String.fromInt trackMarginX
+                        , ","
+                        , String.fromInt trackMarginY
+                        , ")"
+                        ]
+                    )
                 ]
                 [ Svg.image
                     [ Svg.Attributes.xlinkHref "example.png"
-                    , Svg.Attributes.x "1px"
-                    , Svg.Attributes.y "1px"
-                    , Svg.Attributes.width (Ui.xToPx model.trackSize)
-                    , Svg.Attributes.height (Ui.yToPx model.trackSize)
+                    , Svg.Attributes.width (String.fromInt trackWidth)
+                    , Svg.Attributes.height (String.fromInt trackHeight)
                     ]
                     []
                 , Svg.rect
-                    [ Svg.Attributes.width (Ui.xToString trackBorderSize)
-                    , Svg.Attributes.height (Ui.yToString trackBorderSize)
+                    [ Svg.Attributes.x "-1"
+                    , Svg.Attributes.x "-1"
+                    , Svg.Attributes.width (String.fromInt (trackWidth + 2))
+                    , Svg.Attributes.height (String.fromInt (trackHeight + 2))
                     , Svg.Attributes.fill "none"
                     , Svg.Attributes.stroke "#3C78F0"
                     , Svg.Attributes.strokeWidth "2"
