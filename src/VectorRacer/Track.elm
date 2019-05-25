@@ -1,5 +1,5 @@
 module VectorRacer.Track exposing
-    ( Track, Surface(..), Checkpoint(..)
+    ( Track, Surface(..), Checkpoint(..), Size
     , getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
     , encode, decoder, DecodeResult, DecodeError(..)
     , fromMaskBytes, MaskBytesError(..), Color
@@ -12,7 +12,7 @@ module VectorRacer.Track exposing
 
 # Track
 
-@docs Track, Surface, Checkpoint
+@docs Track, Surface, Checkpoint, Size
 @docs getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
 
 
@@ -37,7 +37,9 @@ import Bytes.Decode
 import Json.Decode
 import Json.Encode
 import QuadTreeRaster as Raster exposing (Raster)
-import VectorRacer.Vector as Vector exposing (PositionVector, SizeVector)
+import VectorRacer exposing (Position)
+import VectorRacer.Pixels as Pixels exposing (Pixels)
+import VectorRacer.Vector as Vector exposing (Vector)
 
 
 
@@ -52,7 +54,7 @@ type Track
 type alias Model =
     { surfaces : Raster Surface
     , checkpoints : ( Checkpoint, List Checkpoint )
-    , startPositions : List PositionVector
+    , startPositions : List Position
     }
 
 
@@ -74,14 +76,18 @@ type Checkpoint
     | Checkpoint5
 
 
+type alias Size =
+    Vector Int Pixels
+
+
 {-| -}
-getSize : Track -> SizeVector
+getSize : Track -> Size
 getSize (Track model) =
     let
         { width, height } =
             Raster.getSize model.surfaces
     in
-    Vector.init width height
+    Pixels.pixels width height
 
 
 {-| -}
@@ -108,7 +114,7 @@ checkpointsTupleToList ( firstCheckpoint, otherCheckpoints ) =
 
 
 {-| -}
-getStartPositions : Track -> List PositionVector
+getStartPositions : Track -> List Position
 getStartPositions (Track model) =
     model.startPositions
 
@@ -122,7 +128,7 @@ encode : Track -> Json.Encode.Value
 encode (Track { surfaces, startPositions }) =
     Json.Encode.object
         [ ( "size", encodeSize (Raster.getSize surfaces) )
-        , ( "startPositions", Json.Encode.list Vector.encode startPositions )
+        , ( "startPositions", Json.Encode.list VectorRacer.encodePosition startPositions )
         , ( "surfaces", Json.Encode.string (serializeSurfaces surfaces) )
         ]
 
@@ -198,7 +204,7 @@ type DecodeError
 type alias TrackDecodeData =
     { size : Raster.Size
     , surfaces : String
-    , startPositions : List PositionVector
+    , startPositions : List Position
     }
 
 
@@ -234,7 +240,7 @@ dataDecoder =
     Json.Decode.map3 TrackDecodeData
         (Json.Decode.field "size" sizeDecoder)
         (Json.Decode.field "surfaces" Json.Decode.string)
-        (Json.Decode.field "startPositions" (Json.Decode.list Vector.decoder)
+        (Json.Decode.field "startPositions" (Json.Decode.list VectorRacer.positionDecoder)
             |> Json.Decode.maybe
             |> Json.Decode.map (Maybe.withDefault [])
         )
@@ -329,19 +335,19 @@ type alias MaskBytesResult =
 type alias MaskBytesData =
     { surfaces : Raster Surface
     , checkpoints : Checkpoints
-    , startPositions : List PositionVector
+    , startPositions : List Position
     }
 
 
 {-| -}
 type MaskBytesError
     = BytesDecodeError
-    | InvalidMaskSurfaceError PositionVector Color
+    | InvalidMaskSurfaceError Position Color
     | NoMaskCheckpointsError
 
 
 {-| -}
-fromMaskBytes : SizeVector -> Bytes -> Result MaskBytesError Track
+fromMaskBytes : Size -> Bytes -> Result MaskBytesError Track
 fromMaskBytes size maskBytes =
     case Bytes.Decode.decode (maskBytesDecoder size) maskBytes of
         Just (Ok { surfaces, checkpoints, startPositions }) ->
@@ -365,14 +371,18 @@ fromMaskBytes size maskBytes =
             Err BytesDecodeError
 
 
-maskBytesDecoder : SizeVector -> Bytes.Decode.Decoder MaskBytesResult
+maskBytesDecoder : Size -> Bytes.Decode.Decoder MaskBytesResult
 maskBytesDecoder size =
+    let
+        ( width, height ) =
+            Pixels.inPixels size
+    in
     Bytes.Decode.loop
         ( 0
         , { surfaces =
                 Raster.init
-                    { width = Vector.x size
-                    , height = Vector.y size
+                    { width = width
+                    , height = height
                     }
                     Wall
           , checkpoints =
@@ -433,14 +443,18 @@ maskBytesLoop ( index, { surfaces, checkpoints, startPositions } as data ) =
         Bytes.Decode.succeed (Bytes.Decode.Done (Ok data))
 
 
-indexToPosition : Raster.Size -> Int -> PositionVector
+indexToPosition : Raster.Size -> Int -> Position
 indexToPosition { width } index =
-    Vector.init (remainderBy width index) (index // width)
+    Pixels.pixels (remainderBy width index) (index // width)
 
 
-updateMaskSurfaceRaster : PositionVector -> Surface -> Raster Surface -> Raster Surface
+updateMaskSurfaceRaster : Position -> Surface -> Raster Surface -> Raster Surface
 updateMaskSurfaceRaster position surface surfaces =
-    Raster.set (Vector.x position) (Vector.y position) surface surfaces
+    let
+        ( x, y ) =
+            Pixels.inPixels position
+    in
+    Raster.set x y surface surfaces
 
 
 {-| -}
@@ -517,11 +531,11 @@ getSurfaces (Track model) =
 {-| -}
 type SurfacesError
     = NoCheckpointSurfacesError
-    | InvalidStartPosition PositionVector
+    | InvalidStartPosition Position
 
 
 {-| -}
-fromSurfaces : Raster Surface -> List PositionVector -> Result SurfacesError Track
+fromSurfaces : Raster Surface -> List Position -> Result SurfacesError Track
 fromSurfaces surfaces startPositions =
     case checkStartPositions startPositions surfaces of
         Just error ->
@@ -542,14 +556,18 @@ fromSurfaces surfaces startPositions =
                         )
 
 
-checkStartPositions : List PositionVector -> Raster Surface -> Maybe SurfacesError
+checkStartPositions : List Position -> Raster Surface -> Maybe SurfacesError
 checkStartPositions startPositions surfaces =
     case startPositions of
         [] ->
             Nothing
 
         startPosition :: nextStartPositions ->
-            case Raster.get (Vector.x startPosition) (Vector.y startPosition) surfaces of
+            let
+                ( x, y ) =
+                    Pixels.inPixels startPosition
+            in
+            case Raster.get x y surfaces of
                 Just surface ->
                     if isValidStartSurface surface then
                         checkStartPositions nextStartPositions surfaces

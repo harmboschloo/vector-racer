@@ -1,153 +1,147 @@
 module VectorRacer.Vector exposing
-    ( PositionVector, VelocityVector, AccelerationVector, SizeVector, OffsetVector, ScaleVector
-    , Position, Velocity, Acceleration, Size, Offset, Scale
-    , Vector, init, x, y
-    , divideBy
-    , xToPx, yToPx, toTupleString
-    , encode, decoder
+    ( Vector
+    , decoder
+    , divideByInt
+    , encode
+    , fromComponents
+    , fromFloats
+    , fromInts
+    , fromQuantities
+    , plus
+    , toComponents
+    , toFloatVector
+    , toFloats
+    , toInts
+    , toQuantities
     )
 
-{-|
-
-@docs PositionVector, VelocityVector, AccelerationVector, SizeVector, OffsetVector, ScaleVector
-@docs Position, Velocity, Acceleration, Size, Offset, Scale
-@docs Vector, init, x, y
-@docs divideBy
-@docs xToPx, yToPx, toTupleString
-@docs encode, decoder
-
--}
+{-| -}
 
 import Json.Decode
 import Json.Encode
+import Quantity exposing (Quantity(..))
 
 
 
--- TYPES --
+-- MODEL --
 
 
-type alias PositionVector =
-    Vector Position
-
-
-type Position
-    = Position
-
-
-type alias VelocityVector =
-    Vector Velocity
-
-
-type Velocity
-    = Velocity
-
-
-type alias AccelerationVector =
-    Vector Acceleration
-
-
-type Acceleration
-    = Acceleration
-
-
-type alias SizeVector =
-    Vector Size
-
-
-type Size
-    = Size
-
-
-type alias OffsetVector =
-    Vector Offset
-
-
-type Offset
-    = Offset
-
-
-type alias ScaleVector =
-    Vector Scale
-
-
-type Scale
-    = Scale
-
-
-
--- VECTOR --
-
-
-type Vector a
+type Vector number units
     = Vector
-        { x : Int
-        , y : Int
+        { x : Quantity number units
+        , y : Quantity number units
         }
 
 
-init : Int -> Int -> Vector a
-init xValue yValue =
+fromQuantities : Quantity number units -> Quantity number units -> Vector number units
+fromQuantities x y =
     Vector
-        { x = xValue
-        , y = yValue
+        { x = x
+        , y = y
         }
 
 
-x : Vector a -> Int
-x (Vector vector) =
-    vector.x
+toQuantities : Vector number units -> ( Quantity number units, Quantity number units )
+toQuantities (Vector { x, y }) =
+    ( x, y )
 
 
-y : Vector a -> Int
-y (Vector vector) =
-    vector.y
+fromComponents : (number -> Quantity number units) -> number -> number -> Vector number units
+fromComponents fn x y =
+    fromQuantities (fn x) (fn y)
+
+
+toComponents : (Quantity number units -> number) -> Vector number units -> ( number, number )
+toComponents fn (Vector { x, y }) =
+    ( fn x, fn y )
+
+
+fromFloats : Float -> Float -> Vector Float Quantity.Unitless
+fromFloats =
+    fromComponents Quantity.float
+
+
+toFloats : Vector Float Quantity.Unitless -> ( Float, Float )
+toFloats =
+    toComponents Quantity.toFloat
+
+
+fromInts : Int -> Int -> Vector Int Quantity.Unitless
+fromInts =
+    fromComponents Quantity.int
+
+
+toInts : Vector Int Quantity.Unitless -> ( Int, Int )
+toInts =
+    toComponents Quantity.toInt
 
 
 
--- MATH --
+-- MAPS --
 
 
-divideBy : Vector a -> Vector b -> Vector c
-divideBy (Vector b) (Vector a) =
+map : (Quantity number1 units1 -> Quantity number2 units2) -> Vector number1 units1 -> Vector number2 units2
+map fn (Vector a) =
     Vector
-        { x = a.x // b.x
-        , y = a.y // b.y
+        { x = fn a.x
+        , y = fn a.y
+        }
+
+
+map2 :
+    (Quantity number1 units1 -> Quantity number2 units2 -> Quantity number3 units3)
+    -> Vector number1 units1
+    -> Vector number2 units2
+    -> Vector number3 units3
+map2 fn (Vector a) (Vector b) =
+    Vector
+        { x = fn a.x b.x
+        , y = fn a.y b.y
         }
 
 
 
--- STRINGS --
+-- ARITHMETIC --
 
 
-xToPx : Vector a -> String
-xToPx (Vector vector) =
-    String.fromInt vector.x ++ "px"
+plus : Vector number units -> Vector number units -> Vector number units
+plus =
+    map2 Quantity.plus
 
 
-yToPx : Vector a -> String
-yToPx (Vector vector) =
-    String.fromInt vector.y ++ "px"
+divideByInt : Vector Int Quantity.Unitless -> Vector Int units -> Vector Int units
+divideByInt b a =
+    map2 divideQuantityByInt b a
 
 
-toTupleString : Vector a -> String
-toTupleString (Vector vector) =
-    "(" ++ String.fromInt vector.x ++ "," ++ String.fromInt vector.y ++ ")"
+divideQuantityByInt : Quantity Int Quantity.Unitless -> Quantity Int units -> Quantity Int units
+divideQuantityByInt (Quantity b) (Quantity a) =
+    Quantity (a // b)
+
+
+
+-- INTS / FLOATS --
+
+
+toFloatVector : Vector Int units -> Vector Float units
+toFloatVector =
+    map Quantity.toFloatQuantity
 
 
 
 -- JSON --
 
 
-encode : Vector a -> Json.Encode.Value
-encode (Vector vector) =
+encode : (Quantity number units -> Json.Encode.Value) -> Vector number units -> Json.Encode.Value
+encode encodeQuantity (Vector vector) =
     Json.Encode.object
-        [ ( "x", Json.Encode.int vector.x )
-        , ( "y", Json.Encode.int vector.y )
+        [ ( "x", encodeQuantity vector.x )
+        , ( "y", encodeQuantity vector.y )
         ]
 
 
-decoder : Json.Decode.Decoder (Vector a)
-decoder =
-    Json.Decode.map2 init
-        (Json.Decode.field "x" Json.Decode.int)
-        (Json.Decode.field "y" Json.Decode.int)
+decoder : Json.Decode.Decoder (Quantity number units) -> Json.Decode.Decoder (Vector number units)
+decoder quantityDecoder =
+    Json.Decode.map2 fromQuantities
+        (Json.Decode.field "x" quantityDecoder)
+        (Json.Decode.field "y" quantityDecoder)

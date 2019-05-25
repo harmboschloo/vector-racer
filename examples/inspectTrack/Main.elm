@@ -5,12 +5,11 @@ import Browser.Dom
 import Browser.Events
 import Element
 import Html
-import Html.Attributes
 import Http
 import Task
+import VectorRacer.Pixels as Pixels
 import VectorRacer.Track as Track exposing (Track)
 import VectorRacer.Ui.TrackPanel as TrackPanel exposing (TrackPanel)
-import VectorRacer.Vector as Vector
 
 
 
@@ -84,7 +83,7 @@ update msg model =
                 { track = track
                 , trackPanel =
                     TrackPanel.init
-                        { panelSize = Vector.init windowSize.width windowSize.height
+                        { panelSize = Pixels.pixels windowSize.width windowSize.height
                         , trackSize = Track.getSize track
                         , trackImage = trackImage
                         }
@@ -103,7 +102,7 @@ update msg model =
                 { loadedModel
                     | trackPanel =
                         TrackPanel.setPanelSize
-                            (Vector.init width height)
+                            (Pixels.pixels width height)
                             loadedModel.trackPanel
                 }
             , Cmd.none
@@ -155,8 +154,9 @@ view model =
                 [ Element.layout
                     [ Element.width Element.fill
                     , Element.height Element.fill
+                    , Element.clip
                     ]
-                    (Element.html (TrackPanel.view trackPanel))
+                    (TrackPanel.view trackPanel)
                 ]
     }
 
