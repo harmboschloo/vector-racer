@@ -7,6 +7,7 @@ module VectorRacer.Vector exposing
     , fromFloats
     , fromInts
     , fromQuantities
+    , minus
     , plus
     , toComponents
     , toFloatVector
@@ -107,6 +108,11 @@ map2 fn (Vector a) (Vector b) =
 plus : Vector number units -> Vector number units -> Vector number units
 plus =
     map2 Quantity.plus
+
+
+minus : Vector number units -> Vector number units -> Vector number units
+minus =
+    map2 Quantity.minus
 
 
 divideByInt : Vector Int Quantity.Unitless -> Vector Int units -> Vector Int units

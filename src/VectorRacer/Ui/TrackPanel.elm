@@ -12,7 +12,7 @@ import Element exposing (Element)
 import Quantity
 import Svg exposing (Svg)
 import Svg.Attributes
-import VectorRacer.Grid exposing (Grid)
+import VectorRacer.Grid as Grid exposing (Grid)
 import VectorRacer.Pixels as Pixels exposing (Pixels)
 import VectorRacer.Track as Track
 import VectorRacer.Vector as Vector exposing (Vector)
@@ -115,7 +115,7 @@ setTrack trackSize trackImage (TrackPanel model) =
 view : TrackPanel -> Element msg
 view (TrackPanel model) =
     let
-        ( width, height ) =
+        ( panelWidth, panelHeight ) =
             Pixels.inPixels model.panelSize
 
         ( trackMarginX, trackMarginY ) =
@@ -125,22 +125,26 @@ view (TrackPanel model) =
 
         ( trackWidth, trackHeight ) =
             Pixels.inPixels model.trackSize
+
+        transform =
+            String.join ""
+                [ "translate("
+                , String.fromInt trackMarginX
+                , ","
+                , String.fromInt trackMarginY
+                , ")"
+
+                --                , "), scale(2,2)"
+                ]
     in
     Element.html <|
         Svg.svg
-            [ Svg.Attributes.width (String.fromInt width ++ "px")
-            , Svg.Attributes.height (String.fromInt height ++ "px")
+            [ Svg.Attributes.width (String.fromInt panelWidth ++ "px")
+            , Svg.Attributes.height (String.fromInt panelHeight ++ "px")
             ]
-            [ Svg.g
-                [ Svg.Attributes.transform
-                    (String.join ""
-                        [ "translate("
-                        , String.fromInt trackMarginX
-                        , ","
-                        , String.fromInt trackMarginY
-                        , ")"
-                        ]
-                    )
+            [ Svg.defs [] ([] |> withGridDef model.grid transform)
+            , Svg.g
+                [ Svg.Attributes.transform transform
                 ]
                 [ Svg.image
                     [ Svg.Attributes.xlinkHref "example.png"
@@ -159,4 +163,67 @@ view (TrackPanel model) =
                     ]
                     []
                 ]
+            , viewGrid model.grid model.panelSize
             ]
+
+
+withGridDef : Maybe Grid -> String -> List (Svg msg) -> List (Svg msg)
+withGridDef maybeGrid transform elements =
+    case maybeGrid of
+        Just grid ->
+            let
+                ( anchorX, anchorY ) =
+                    Pixels.inPixels (Grid.getAnchorPoint grid)
+
+                ( spacingX, spacingY ) =
+                    Pixels.inPixels (Grid.getSpacing grid)
+
+                ( farPointX, farPointY ) =
+                    Grid.getSpacing grid
+                        |> Vector.toFloatVector
+                        |> Vector.minus (Pixels.pixels 0.5 0.5)
+                        |> Pixels.inPixels
+                        |> Tuple.mapBoth String.fromFloat String.fromFloat
+            in
+            Svg.pattern
+                [ Svg.Attributes.id "grid"
+                , Svg.Attributes.x (String.fromInt anchorX)
+                , Svg.Attributes.y (String.fromInt anchorY)
+                , Svg.Attributes.width (String.fromInt spacingX)
+                , Svg.Attributes.height (String.fromInt spacingY)
+                , Svg.Attributes.patternUnits "userSpaceOnUse"
+                , Svg.Attributes.patternTransform transform
+                ]
+                [ Svg.polyline
+                    [ Svg.Attributes.points ("0.5 " ++ farPointY ++ ", 0.5 0.5 " ++ farPointX ++ " 0.5")
+                    , Svg.Attributes.stroke "#3C78F0"
+                    , Svg.Attributes.strokeOpacity "0.2"
+                    , Svg.Attributes.fill "none"
+                    , Svg.Attributes.strokeWidth "1"
+                    , Svg.Attributes.strokeLinecap "square"
+                    ]
+                    []
+                ]
+                :: elements
+
+        Nothing ->
+            elements
+
+
+viewGrid : Maybe Grid -> Size -> Svg msg
+viewGrid maybeGrid size =
+    case maybeGrid of
+        Just _ ->
+            let
+                ( width, height ) =
+                    Pixels.inPixels size
+            in
+            Svg.rect
+                [ Svg.Attributes.fill "url(#grid)"
+                , Svg.Attributes.width (String.fromInt width)
+                , Svg.Attributes.height (String.fromInt height)
+                ]
+                []
+
+        Nothing ->
+            Svg.g [] []

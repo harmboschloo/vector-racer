@@ -7,6 +7,7 @@ import Element
 import Html
 import Http
 import Task
+import VectorRacer.Grid as Grid
 import VectorRacer.Pixels as Pixels
 import VectorRacer.Track as Track exposing (Track)
 import VectorRacer.Ui.TrackPanel as TrackPanel exposing (TrackPanel)
@@ -82,11 +83,23 @@ update msg model =
             ( Loaded
                 { track = track
                 , trackPanel =
-                    TrackPanel.init
-                        { panelSize = Pixels.pixels windowSize.width windowSize.height
-                        , trackSize = Track.getSize track
-                        , trackImage = trackImage
-                        }
+                    { panelSize = Pixels.pixels windowSize.width windowSize.height
+                    , trackSize = Track.getSize track
+                    , trackImage = trackImage
+                    }
+                        |> TrackPanel.init
+                        |> TrackPanel.setGrid
+                            (track
+                                |> Track.getStartPositions
+                                |> List.head
+                                |> Maybe.map
+                                    (\startPoint ->
+                                        Grid.init
+                                            { anchorPoint = startPoint
+                                            , spacing = Pixels.pixels 15 15
+                                            }
+                                    )
+                            )
                 }
             , Cmd.none
             )
