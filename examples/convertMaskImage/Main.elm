@@ -5,8 +5,8 @@ import File exposing (File)
 import Json.Decode
 import Json.Encode
 import Task
+import VectorRacer.Pixels as Pixels
 import VectorRacer.Track as Track exposing (Track)
-import VectorRacer.Vector as Vector exposing (SizeVector)
 
 
 
@@ -42,7 +42,7 @@ init flags =
         Ok file ->
             ( ()
             , Task.perform
-                (ImageBytesLoaded (Vector.init file.width file.height))
+                (ImageBytesLoaded (Pixels.pixels ( file.width, file.height )))
                 (File.toBytes file.bytesFile)
             )
 
@@ -57,7 +57,7 @@ init flags =
 
 
 type Msg
-    = ImageBytesLoaded SizeVector Bytes
+    = ImageBytesLoaded Track.Size Bytes
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
