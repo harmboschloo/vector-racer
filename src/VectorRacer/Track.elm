@@ -87,7 +87,7 @@ getSize (Track model) =
         { width, height } =
             Raster.getSize model.surfaces
     in
-    Pixels.pixels width height
+    Pixels.pixels ( width, height )
 
 
 {-| -}
@@ -445,7 +445,7 @@ maskBytesLoop ( index, { surfaces, checkpoints, startPositions } as data ) =
 
 indexToPosition : Raster.Size -> Int -> Position
 indexToPosition { width } index =
-    Pixels.pixels (remainderBy width index) (index // width)
+    Pixels.pixels ( remainderBy width index, index // width )
 
 
 updateMaskSurfaceRaster : Position -> Surface -> Raster Surface -> Raster Surface

@@ -1,13 +1,16 @@
 module VectorRacer.Vector exposing
     ( Vector
     , decoder
+    , distance
     , divideByInt
     , encode
     , fromComponents
     , fromFloats
     , fromInts
     , fromQuantities
+    , mean
     , minus
+    , multiplyBy
     , plus
     , toComponents
     , toFloatVector
@@ -34,8 +37,8 @@ type Vector number units
         }
 
 
-fromQuantities : Quantity number units -> Quantity number units -> Vector number units
-fromQuantities x y =
+fromQuantities : ( Quantity number units, Quantity number units ) -> Vector number units
+fromQuantities ( x, y ) =
     Vector
         { x = x
         , y = y
@@ -47,9 +50,9 @@ toQuantities (Vector { x, y }) =
     ( x, y )
 
 
-fromComponents : (number -> Quantity number units) -> number -> number -> Vector number units
-fromComponents fn x y =
-    fromQuantities (fn x) (fn y)
+fromComponents : (number -> Quantity number units) -> ( number, number ) -> Vector number units
+fromComponents fn ( x, y ) =
+    fromQuantities ( fn x, fn y )
 
 
 toComponents : (Quantity number units -> number) -> Vector number units -> ( number, number )
@@ -57,7 +60,7 @@ toComponents fn (Vector { x, y }) =
     ( fn x, fn y )
 
 
-fromFloats : Float -> Float -> Vector Float Quantity.Unitless
+fromFloats : ( Float, Float ) -> Vector Float Quantity.Unitless
 fromFloats =
     fromComponents Quantity.float
 
@@ -67,7 +70,7 @@ toFloats =
     toComponents Quantity.toFloat
 
 
-fromInts : Int -> Int -> Vector Int Quantity.Unitless
+fromInts : ( Int, Int ) -> Vector Int Quantity.Unitless
 fromInts =
     fromComponents Quantity.int
 
@@ -115,6 +118,16 @@ minus =
     map2 Quantity.minus
 
 
+divideBy : Vector Float Quantity.Unitless -> Vector Float units -> Vector Float units
+divideBy =
+    map2 (Quantity.toFloat >> Quantity.divideBy)
+
+
+multiplyBy : Vector Float Quantity.Unitless -> Vector Float units -> Vector Float units
+multiplyBy =
+    map2 (Quantity.toFloat >> Quantity.multiplyBy)
+
+
 divideByInt : Vector Int Quantity.Unitless -> Vector Int units -> Vector Int units
 divideByInt b a =
     map2 divideQuantityByInt b a
@@ -123,6 +136,29 @@ divideByInt b a =
 divideQuantityByInt : Quantity Int Quantity.Unitless -> Quantity Int units -> Quantity Int units
 divideQuantityByInt (Quantity b) (Quantity a) =
     Quantity (a // b)
+
+
+distance : Vector Float units -> Vector Float units -> Quantity Float units
+distance (Vector a) (Vector b) =
+    let
+        (Quantity x1) =
+            a.x
+
+        (Quantity y1) =
+            a.y
+
+        (Quantity x2) =
+            b.x
+
+        (Quantity y2) =
+            b.y
+    in
+    Quantity (sqrt ((x2 - x1) ^ 2 + (y2 - y1) ^ 2))
+
+
+mean : Vector Float units -> Vector Float units -> Vector Float units
+mean a b =
+    a |> plus b |> divideBy (fromFloats ( 2, 2 ))
 
 
 
@@ -148,6 +184,6 @@ encode encodeQuantity (Vector vector) =
 
 decoder : Json.Decode.Decoder (Quantity number units) -> Json.Decode.Decoder (Vector number units)
 decoder quantityDecoder =
-    Json.Decode.map2 fromQuantities
+    Json.Decode.map2 (\x y -> fromQuantities ( x, y ))
         (Json.Decode.field "x" quantityDecoder)
         (Json.Decode.field "y" quantityDecoder)

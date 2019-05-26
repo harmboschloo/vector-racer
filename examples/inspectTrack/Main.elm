@@ -63,6 +63,7 @@ type Msg
     = GotViewport Browser.Dom.Viewport
     | GotWindowResize Int Int
     | GotTrack String (Result Http.Error Track.DecodeResult)
+    | GotTrackPanelMsg TrackPanel.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -83,7 +84,7 @@ update msg model =
             ( Loaded
                 { track = track
                 , trackPanel =
-                    { panelSize = Pixels.pixels windowSize.width windowSize.height
+                    { panelSize = Pixels.pixels ( windowSize.width, windowSize.height )
                     , trackSize = Track.getSize track
                     , trackImage = trackImage
                     }
@@ -96,7 +97,7 @@ update msg model =
                                     (\startPoint ->
                                         Grid.init
                                             { anchorPoint = startPoint
-                                            , spacing = Pixels.pixels 15 15
+                                            , spacing = Pixels.pixels ( 15, 15 )
                                             }
                                     )
                             )
@@ -115,9 +116,15 @@ update msg model =
                 { loadedModel
                     | trackPanel =
                         TrackPanel.setPanelSize
-                            (Pixels.pixels width height)
+                            (Pixels.pixels ( width, height ))
                             loadedModel.trackPanel
                 }
+            , Cmd.none
+            )
+
+        ( Loaded loadedModel, GotTrackPanelMsg trackPanelMsg ) ->
+            ( Loaded
+                { loadedModel | trackPanel = TrackPanel.update trackPanelMsg loadedModel.trackPanel }
             , Cmd.none
             )
 
@@ -141,8 +148,11 @@ subscriptions model =
         LoadError _ ->
             Sub.none
 
-        Loaded _ ->
-            Browser.Events.onResize GotWindowResize
+        Loaded loadedModel ->
+            Sub.batch
+                [ Browser.Events.onResize GotWindowResize
+                , TrackPanel.subscriptions loadedModel.trackPanel |> Sub.map GotTrackPanelMsg
+                ]
 
 
 
@@ -169,7 +179,7 @@ view model =
                     , Element.height Element.fill
                     , Element.clip
                     ]
-                    (TrackPanel.view trackPanel)
+                    (TrackPanel.view trackPanel |> Element.map GotTrackPanelMsg)
                 ]
     }
 

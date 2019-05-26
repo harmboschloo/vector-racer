@@ -32,7 +32,7 @@ type alias PixelsPerStepSquared =
     Quantity.Rate PixelsPerStep Steps
 
 
-pixels : number -> number -> Vector number Pixels
+pixels : ( number, number ) -> Vector number Pixels
 pixels =
     Vector.fromComponents Quantity
 
@@ -42,7 +42,7 @@ inPixels =
     Vector.toComponents unwrapQuantity
 
 
-pixelsPerStep : number -> number -> Vector number PixelsPerStep
+pixelsPerStep : ( number, number ) -> Vector number PixelsPerStep
 pixelsPerStep =
     Vector.fromComponents Quantity
 
@@ -52,7 +52,7 @@ inPixelsPerStep =
     Vector.toComponents unwrapQuantity
 
 
-pixelsPerStepSquared : number -> number -> Vector number PixelsPerStepSquared
+pixelsPerStepSquared : ( number, number ) -> Vector number PixelsPerStepSquared
 pixelsPerStepSquared =
     Vector.fromComponents Quantity
 
