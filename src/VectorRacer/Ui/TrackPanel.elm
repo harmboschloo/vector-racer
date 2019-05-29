@@ -16,6 +16,7 @@ import Browser.Events
 import Element exposing (Element)
 import Html.Events.Extra.Mouse as Mouse
 import Html.Events.Extra.Touch as Touch
+import Html.Events.Extra.Wheel as Wheel
 import Json.Decode
 import Quantity
 import Svg exposing (Svg)
@@ -108,7 +109,7 @@ init { panelSize, trackSize, trackImage } =
         , state =
             Inactive
                 { offset = Pixels.pixels ( 0, 0 )
-                , scale = Vector.fromFloats ( 2.5, 2.5 )
+                , scale = Vector.fromFloat 2.5
                 }
         }
 
@@ -158,10 +159,7 @@ getTransform state =
                             Vector.distance touchA.current touchB.current
 
                         zoom =
-                            Quantity.ratio distance1 distance0
-
-                        zoomVector =
-                            Vector.fromFloats ( zoom, zoom )
+                            Quantity.ratio distance1 distance0 |> Vector.fromFloat
 
                         mean0 =
                             Vector.mean touchA.start touchB.start
@@ -169,8 +167,8 @@ getTransform state =
                         mean1 =
                             Vector.mean touchA.current touchB.current
                     in
-                    { offset = mean1 |> Vector.minus (mean0 |> Vector.minus baseOffset |> Vector.multiplyBy zoomVector)
-                    , scale = baseScale |> Vector.multiplyBy zoomVector
+                    { offset = mean1 |> Vector.minus (mean0 |> Vector.minus baseOffset |> Vector.multiplyBy zoom)
+                    , scale = baseScale |> Vector.multiplyBy zoom
                     }
 
                 touch :: _ ->
@@ -217,6 +215,7 @@ type Msg
     | TouchMove Touch.Event
     | TouchEnd Touch.Event
     | TouchCancel Touch.Event
+    | Wheel Wheel.Event
 
 
 update : Msg -> TrackPanel -> TrackPanel
@@ -282,6 +281,26 @@ updateState msg state =
         TouchCancel event ->
             endTouches event state
 
+        Wheel event ->
+            case state of
+                Inactive { offset, scale } ->
+                    Inactive (updateZoom event offset scale)
+
+                MouseActive mouse ->
+                    -- TODO: TEST
+                    let
+                        zoom =
+                            updateZoom event mouse.baseOffset mouse.baseScale
+                    in
+                    MouseActive
+                        { mouse
+                            | baseOffset = zoom.offset
+                            , baseScale = zoom.scale
+                        }
+
+                TouchActive _ ->
+                    state
+
 
 endTouches : Touch.Event -> State -> State
 endTouches event state =
@@ -332,6 +351,39 @@ updateTouches touch touches =
                 touchData
         )
         touches
+
+
+updateZoom : Wheel.Event -> Offset -> Scale -> { offset : Offset, scale : Scale }
+updateZoom event offset scale =
+    let
+        zoom =
+            wheelZoom event |> Vector.fromFloat
+
+        eventOffset =
+            Pixels.pixels event.mouseEvent.clientPos
+
+        offsetDiff =
+            offset |> Vector.minus eventOffset
+
+        offsetDiffZoomed =
+            offsetDiff |> Vector.multiplyBy zoom
+    in
+    { offset = offset |> Vector.plus offsetDiffZoomed |> Vector.minus offsetDiff
+    , scale = Vector.multiplyBy zoom scale
+    }
+
+
+wheelZoom : Wheel.Event -> Float
+wheelZoom event =
+    case event.deltaMode of
+        Wheel.DeltaPixel ->
+            1 + event.deltaY * 0.0015
+
+        Wheel.DeltaLine ->
+            1 + event.deltaY * 0.0015
+
+        Wheel.DeltaPage ->
+            1 + event.deltaY * 0.0015
 
 
 
@@ -428,6 +480,7 @@ withEvents attributes =
         :: Touch.onMove TouchMove
         :: Touch.onEnd TouchEnd
         :: Touch.onCancel TouchCancel
+        :: Wheel.onWheel Wheel
         :: attributes
 
 

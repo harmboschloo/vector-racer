@@ -2,10 +2,13 @@ module VectorRacer.Vector exposing
     ( Vector
     , decoder
     , distance
+    , divideBy
     , divideByInt
     , encode
     , fromComponents
+    , fromFloat
     , fromFloats
+    , fromInt
     , fromInts
     , fromQuantities
     , mean
@@ -70,6 +73,11 @@ toFloats =
     toComponents Quantity.toFloat
 
 
+fromFloat : Float -> Vector Float Quantity.Unitless
+fromFloat value =
+    fromComponents Quantity.float ( value, value )
+
+
 fromInts : ( Int, Int ) -> Vector Int Quantity.Unitless
 fromInts =
     fromComponents Quantity.int
@@ -78,6 +86,11 @@ fromInts =
 toInts : Vector Int Quantity.Unitless -> ( Int, Int )
 toInts =
     toComponents Quantity.toInt
+
+
+fromInt : Int -> Vector Int Quantity.Unitless
+fromInt value =
+    fromComponents Quantity.int ( value, value )
 
 
 
