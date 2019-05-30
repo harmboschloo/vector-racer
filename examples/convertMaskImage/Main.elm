@@ -5,8 +5,8 @@ import File exposing (File)
 import Json.Decode
 import Json.Encode
 import Task
-import VectorRacer.Pixels as Pixels
 import VectorRacer.Track as Track exposing (Track)
+import VectorRacer.Vector.Pixels as Pixels
 
 
 

@@ -1,4 +1,4 @@
-module VectorRacer.Pixels exposing
+module VectorRacer.Vector.Pixels exposing
     ( Pixels
     , PixelsPerStep
     , PixelsPerStepSquared

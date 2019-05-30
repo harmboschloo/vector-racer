@@ -38,8 +38,8 @@ import Json.Decode
 import Json.Encode
 import QuadTreeRaster as Raster exposing (Raster)
 import VectorRacer exposing (Position)
-import VectorRacer.Pixels as Pixels exposing (Pixels)
 import VectorRacer.Vector as Vector exposing (Vector)
+import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
 
 
 

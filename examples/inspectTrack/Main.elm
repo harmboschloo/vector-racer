@@ -8,9 +8,9 @@ import Html
 import Http
 import Task
 import VectorRacer.Grid as Grid
-import VectorRacer.Pixels as Pixels
 import VectorRacer.Track as Track exposing (Track)
 import VectorRacer.Ui.TrackPanel as TrackPanel exposing (TrackPanel)
+import VectorRacer.Vector.Pixels as Pixels
 
 
 

@@ -5,7 +5,14 @@
     "license": "BSD-3-Clause",
     "version": "1.0.0",
     "exposed-modules": [
-        "VectorRacer"
+        "VectorRacer",
+        "VectorRacer.Grid",
+        "VectorRacer.Steps",
+        "VectorRacer.Track",
+        "VectorRacer.Vector",
+        "VectorRacer.Vector.Pixels",
+        "VectorRacer.Ui.PanZoom",
+        "VectorRacer.Ui.TrackPanel"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {

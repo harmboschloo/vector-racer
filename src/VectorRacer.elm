@@ -8,8 +8,8 @@ module VectorRacer exposing
 
 import Json.Decode
 import Json.Encode
-import VectorRacer.Pixels as Pixels exposing (Pixels)
 import VectorRacer.Vector exposing (Vector)
+import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
 
 
 type alias Position =

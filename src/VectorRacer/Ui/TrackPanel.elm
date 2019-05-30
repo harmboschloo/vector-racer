@@ -12,19 +12,14 @@ module VectorRacer.Ui.TrackPanel exposing
 
 -}
 
-import Browser.Events
 import Element exposing (Element)
-import Html.Events.Extra.Mouse as Mouse
-import Html.Events.Extra.Touch as Touch
-import Html.Events.Extra.Wheel as Wheel
-import Json.Decode
-import Quantity
 import Svg exposing (Svg)
 import Svg.Attributes
 import VectorRacer.Grid as Grid exposing (Grid)
-import VectorRacer.Pixels as Pixels exposing (Pixels)
 import VectorRacer.Track as Track
+import VectorRacer.Ui.PanZoom as PanZoom exposing (PanZoom)
 import VectorRacer.Vector as Vector exposing (Vector)
+import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
 
 
 
@@ -40,58 +35,12 @@ type alias Model =
     , trackSize : Size
     , trackImage : String
     , grid : Maybe Grid
-    , state : State
+    , panZoom : PanZoom
     }
 
 
 type alias Size =
     Vector Int Pixels
-
-
-type alias Offset =
-    Vector Float Pixels
-
-
-type alias Point =
-    Vector Float Pixels
-
-
-type alias Scale =
-    Vector Float Quantity.Unitless
-
-
-type State
-    = Inactive InactiveState
-    | MouseActive MouseState
-    | TouchActive TouchState
-
-
-type alias InactiveState =
-    { offset : Offset
-    , scale : Scale
-    }
-
-
-type alias MouseState =
-    { baseOffset : Offset
-    , baseScale : Scale
-    , down : Point
-    , current : Point
-    }
-
-
-type alias TouchState =
-    { baseOffset : Offset
-    , baseScale : Scale
-    , touches : List TouchData
-    }
-
-
-type alias TouchData =
-    { id : Int
-    , start : Point
-    , current : Point
-    }
 
 
 init :
@@ -106,11 +55,7 @@ init { panelSize, trackSize, trackImage } =
         , trackSize = trackSize
         , trackImage = trackImage
         , grid = Nothing
-        , state =
-            Inactive
-                { offset = Pixels.pixels ( 0, 0 )
-                , scale = Vector.fromFloat 2.5
-                }
+        , panZoom = PanZoom.init
         }
 
 
@@ -134,256 +79,18 @@ setTrack trackSize trackImage (TrackPanel model) =
 
 
 
--- TODO: centerOn...
-
-
-getTransform : State -> { offset : Offset, scale : Scale }
-getTransform state =
-    case state of
-        Inactive transform ->
-            transform
-
-        MouseActive { baseOffset, baseScale, down, current } ->
-            { offset = baseOffset |> Vector.plus current |> Vector.minus down
-            , scale = baseScale
-            }
-
-        TouchActive { baseOffset, baseScale, touches } ->
-            case touches of
-                touchA :: touchB :: _ ->
-                    let
-                        distance0 =
-                            Vector.distance touchA.start touchB.start
-
-                        distance1 =
-                            Vector.distance touchA.current touchB.current
-
-                        zoom =
-                            Quantity.ratio distance1 distance0 |> Vector.fromFloat
-
-                        mean0 =
-                            Vector.mean touchA.start touchB.start
-
-                        mean1 =
-                            Vector.mean touchA.current touchB.current
-                    in
-                    { offset = mean1 |> Vector.minus (mean0 |> Vector.minus baseOffset |> Vector.multiplyBy zoom)
-                    , scale = baseScale |> Vector.multiplyBy zoom
-                    }
-
-                touch :: _ ->
-                    { offset = baseOffset |> Vector.plus (touch.current |> Vector.minus touch.start)
-                    , scale = baseScale
-                    }
-
-                _ ->
-                    { offset = baseOffset, scale = baseScale }
-
-
-getTransformString : State -> String
-getTransformString state =
-    let
-        { offset, scale } =
-            getTransform state
-
-        ( dx, dy ) =
-            Pixels.inPixels offset
-
-        ( scaleX, scaleY ) =
-            Vector.toFloats scale
-    in
-    "translate("
-        ++ String.fromFloat dx
-        ++ ","
-        ++ String.fromFloat dy
-        ++ ") scale("
-        ++ String.fromFloat scaleX
-        ++ ",0"
-        ++ String.fromFloat scaleY
-        ++ ")"
-
-
-
 -- UPDATE --
 
 
 type Msg
-    = MouseDown Mouse.Event
-    | MouseMove Mouse.Event
-    | MouseUp Mouse.Event
-    | TouchStart Touch.Event
-    | TouchMove Touch.Event
-    | TouchEnd Touch.Event
-    | TouchCancel Touch.Event
-    | Wheel Wheel.Event
+    = GotPanZoomMsg PanZoom.Msg
 
 
 update : Msg -> TrackPanel -> TrackPanel
 update msg (TrackPanel model) =
-    TrackPanel { model | state = updateState msg model.state }
-
-
-updateState : Msg -> State -> State
-updateState msg state =
     case msg of
-        MouseDown event ->
-            let
-                { offset, scale } =
-                    getTransform state
-            in
-            MouseActive
-                { baseOffset = offset
-                , baseScale = scale
-                , down = Pixels.pixels event.clientPos
-                , current = Pixels.pixels event.clientPos
-                }
-
-        MouseMove event ->
-            case state of
-                Inactive _ ->
-                    state
-
-                MouseActive mouseState ->
-                    MouseActive { mouseState | current = Pixels.pixels event.clientPos }
-
-                TouchActive _ ->
-                    state
-
-        MouseUp _ ->
-            case state of
-                Inactive _ ->
-                    state
-
-                MouseActive _ ->
-                    Inactive (getTransform state)
-
-                TouchActive _ ->
-                    state
-
-        TouchStart event ->
-            resetTouches event state
-
-        TouchMove event ->
-            case state of
-                Inactive _ ->
-                    state
-
-                MouseActive _ ->
-                    state
-
-                TouchActive touchState ->
-                    TouchActive
-                        { touchState | touches = List.foldl updateTouches touchState.touches event.changedTouches }
-
-        TouchEnd event ->
-            endTouches event state
-
-        TouchCancel event ->
-            endTouches event state
-
-        Wheel event ->
-            case state of
-                Inactive { offset, scale } ->
-                    Inactive (updateZoom event offset scale)
-
-                MouseActive mouse ->
-                    -- TODO: TEST
-                    let
-                        zoom =
-                            updateZoom event mouse.baseOffset mouse.baseScale
-                    in
-                    MouseActive
-                        { mouse
-                            | baseOffset = zoom.offset
-                            , baseScale = zoom.scale
-                        }
-
-                TouchActive _ ->
-                    state
-
-
-endTouches : Touch.Event -> State -> State
-endTouches event state =
-    case state of
-        Inactive _ ->
-            state
-
-        MouseActive _ ->
-            state
-
-        TouchActive _ ->
-            if List.isEmpty event.touches then
-                Inactive (getTransform state)
-
-            else
-                resetTouches event state
-
-
-resetTouches : Touch.Event -> State -> State
-resetTouches event state =
-    let
-        { offset, scale } =
-            getTransform state
-    in
-    TouchActive
-        { baseOffset = offset
-        , baseScale = scale
-        , touches =
-            List.map
-                (\touch ->
-                    { id = touch.identifier
-                    , start = Pixels.pixels touch.clientPos
-                    , current = Pixels.pixels touch.clientPos
-                    }
-                )
-                event.touches
-        }
-
-
-updateTouches : Touch.Touch -> List TouchData -> List TouchData
-updateTouches touch touches =
-    List.map
-        (\touchData ->
-            if touchData.id == touch.identifier then
-                { touchData | current = Pixels.pixels touch.clientPos }
-
-            else
-                touchData
-        )
-        touches
-
-
-updateZoom : Wheel.Event -> Offset -> Scale -> { offset : Offset, scale : Scale }
-updateZoom event offset scale =
-    let
-        zoom =
-            wheelZoom event |> Vector.fromFloat
-
-        eventOffset =
-            Pixels.pixels event.mouseEvent.clientPos
-
-        offsetDiff =
-            offset |> Vector.minus eventOffset
-
-        offsetDiffZoomed =
-            offsetDiff |> Vector.multiplyBy zoom
-    in
-    { offset = offset |> Vector.plus offsetDiffZoomed |> Vector.minus offsetDiff
-    , scale = Vector.multiplyBy zoom scale
-    }
-
-
-wheelZoom : Wheel.Event -> Float
-wheelZoom event =
-    case event.deltaMode of
-        Wheel.DeltaPixel ->
-            1 + event.deltaY * 0.0015
-
-        Wheel.DeltaLine ->
-            1 + event.deltaY * 0.0015
-
-        Wheel.DeltaPage ->
-            1 + event.deltaY * 0.0015
+        GotPanZoomMsg panZoomMsg ->
+            TrackPanel { model | panZoom = PanZoom.update panZoomMsg model.panZoom }
 
 
 
@@ -392,18 +99,7 @@ wheelZoom event =
 
 subscriptions : TrackPanel -> Sub Msg
 subscriptions (TrackPanel model) =
-    case model.state of
-        Inactive _ ->
-            Sub.none
-
-        MouseActive _ ->
-            Sub.batch
-                [ Browser.Events.onMouseMove (Json.Decode.map MouseMove Mouse.eventDecoder)
-                , Browser.Events.onMouseUp (Json.Decode.map MouseUp Mouse.eventDecoder)
-                ]
-
-        TouchActive _ ->
-            Sub.none
+    PanZoom.subscriptions model.panZoom |> Sub.map GotPanZoomMsg
 
 
 
@@ -416,32 +112,18 @@ view (TrackPanel model) =
         ( panelWidth, panelHeight ) =
             Pixels.inPixels model.panelSize
 
-        --        ( trackMarginX, trackMarginY ) =
-        --            model.trackSize
-        --                |> Vector.divideByInt (Vector.fromInts ( 10, 10 ))
-        --                |> Pixels.inPixels
         ( trackWidth, trackHeight ) =
             Pixels.inPixels model.trackSize
 
-        --        transform =
-        --            String.join ""
-        --                [ "translate("
-        --                , String.fromInt trackMarginX
-        --                , ","
-        --                , String.fromInt trackMarginY
-        --                , ")"
-        --
-        --                --                , "), scale(2,2)"
-        --                ]
         transform =
-            getTransformString model.state
+            PanZoom.getTransformString model.panZoom
     in
     Element.html <|
         Svg.svg
             ([ Svg.Attributes.width (String.fromInt panelWidth ++ "px")
              , Svg.Attributes.height (String.fromInt panelHeight ++ "px")
              ]
-                |> withEvents
+                |> PanZoom.withEvents GotPanZoomMsg
             )
             [ Svg.defs [] ([] |> withGridDef model.grid transform)
             , Svg.g
@@ -466,22 +148,6 @@ view (TrackPanel model) =
                 ]
             , viewGrid model.grid model.panelSize
             ]
-
-
-withEvents : List (Svg.Attribute Msg) -> List (Svg.Attribute Msg)
-withEvents attributes =
-    Mouse.onWithOptions
-        "mousedown"
-        { stopPropagation = True
-        , preventDefault = True
-        }
-        MouseDown
-        :: Touch.onStart TouchStart
-        :: Touch.onMove TouchMove
-        :: Touch.onEnd TouchEnd
-        :: Touch.onCancel TouchCancel
-        :: Wheel.onWheel Wheel
-        :: attributes
 
 
 withGridDef : Maybe Grid -> String -> List (Svg msg) -> List (Svg msg)
