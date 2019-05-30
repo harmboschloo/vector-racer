@@ -13,6 +13,7 @@ import Quantity.Interval as Interval
 import Svg
 import Svg.Attributes
 import Task
+import VectorRacer exposing (Position)
 import VectorRacer.Grid as Grid exposing (Grid)
 import VectorRacer.Track as Track exposing (Track)
 import VectorRacer.Ui as Ui
@@ -44,6 +45,7 @@ type alias LoadedModel =
     { track : Track
     , trackImage : String
     , panZoom : PanZoom
+    , surface : Maybe ( Position, Maybe Track.Surface )
     }
 
 
@@ -91,7 +93,7 @@ update msg model =
                 , trackImage = trackImage
                 , panZoom =
                     PanZoom.init
-                        |> PanZoom.withScaleBounds (Interval.from (Quantity.float 0.5) (Quantity.float 2.5))
+                        |> PanZoom.withScaleBounds (Interval.from (Quantity.float 0.5) (Quantity.float 5))
                         |> PanZoom.withOffset
                             (windowSize
                                 |> Vector.minus (Track.getSize track |> Vector.toFloatVector)
@@ -100,6 +102,7 @@ update msg model =
                         |> PanZoom.withScale
                             (Quantity.float 1)
                             (Vector.toFloatVector (Track.getSize track) |> Vector.divideBy (Vector.fromFloat 2))
+                , surface = Nothing
                 }
             , Cmd.none
             )
@@ -115,12 +118,23 @@ update msg model =
             , Cmd.none
             )
 
-        ( Loaded _, GotTrackMouseMove event ) ->
+        ( Loaded loadedModel, GotTrackMouseMove event ) ->
             let
-                _ =
-                    Debug.log "mouse" event
+                trackPosition =
+                    Pixels.pixels event.pagePos
+                        |> PanZoom.toLocal loadedModel.panZoom
+                        |> Vector.floor
             in
-            ( model, Cmd.none )
+            ( Loaded
+                { loadedModel
+                    | surface =
+                        Just
+                            ( trackPosition
+                            , Track.getSurface trackPosition loadedModel.track
+                            )
+                }
+            , Cmd.none
+            )
 
         _ ->
             ( model, Cmd.none )
@@ -164,7 +178,7 @@ view model =
             LoadError error ->
                 [ Html.text "Error: ", Html.text error ]
 
-            Loaded { track, trackImage, panZoom } ->
+            Loaded { track, trackImage, panZoom, surface } ->
                 let
                     transform =
                         PanZoom.getTransformString panZoom
@@ -173,20 +187,36 @@ view model =
                     [ Element.width Element.fill
                     , Element.height Element.fill
                     , Element.clip
+                    , Element.inFront (Element.text (Debug.toString surface))
                     ]
                     (Element.html <|
                         Svg.svg
-                            ([ Svg.Attributes.width "100%"
-                             , Svg.Attributes.height "100%"
-                             ]
-                                |> PanZoom.withEvents
-                                |> List.map (Html.Attributes.map GotPanZoomMsg)
+                            (Mouse.onMove GotTrackMouseMove
+                                :: Svg.Attributes.width "100%"
+                                :: Svg.Attributes.height "100%"
+                                :: List.map (Html.Attributes.map GotPanZoomMsg) PanZoom.events
                             )
                             [ Svg.g
-                                [ Svg.Attributes.transform transform
-                                ]
+                                [ Svg.Attributes.transform transform ]
                                 [ Ui.trackImage trackImage (Track.getSize track)
                                 , Ui.trackBorder (Track.getSize track)
+                                , case surface of
+                                    Just ( position, _ ) ->
+                                        let
+                                            ( x, y ) =
+                                                Pixels.inPixels position
+                                        in
+                                        Svg.rect
+                                            [ Svg.Attributes.x (String.fromInt x)
+                                            , Svg.Attributes.y (String.fromInt y)
+                                            , Svg.Attributes.width "1"
+                                            , Svg.Attributes.height "1"
+                                            , Svg.Attributes.fill "#FF0000"
+                                            ]
+                                            []
+
+                                    _ ->
+                                        Svg.g [] []
                                 ]
                             , case getGrid track of
                                 Just grid ->

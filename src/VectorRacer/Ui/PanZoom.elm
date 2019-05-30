@@ -3,12 +3,13 @@ module VectorRacer.Ui.PanZoom exposing
     , PanZoom
     , Point
     , Scale
+    , events
     , getTransform
     , getTransformString
     , init
     , subscriptions
+    , toLocal
     , update
-    , withEvents
     , withOffset
     , withScale
     , withScaleBounds
@@ -215,6 +216,17 @@ getTransformString model =
         ++ ") scale("
         ++ String.fromFloat scale
         ++ ")"
+
+
+toLocal : PanZoom -> Point -> Point
+toLocal model point =
+    let
+        { offset, scale } =
+            getTransform model
+    in
+    point
+        |> Vector.minus offset
+        |> Vector.divideBy (Vector.fromQuantity scale)
 
 
 
@@ -552,15 +564,15 @@ subscriptions (PanZoom { state }) =
 -- VIEW --
 
 
-withEvents : List (Html.Attribute Msg) -> List (Html.Attribute Msg)
-withEvents attributes =
-    Mouse.onWithOptions "mousedown" mouseDownOptions MouseDown
-        :: Touch.onStart TouchStart
-        :: Touch.onMove TouchMove
-        :: Touch.onEnd TouchEnd
-        :: Touch.onCancel TouchCancel
-        :: Wheel.onWheel Wheel
-        :: attributes
+events : List (Html.Attribute Msg)
+events =
+    [ Mouse.onWithOptions "mousedown" mouseDownOptions MouseDown
+    , Touch.onStart TouchStart
+    , Touch.onMove TouchMove
+    , Touch.onEnd TouchEnd
+    , Touch.onCancel TouchCancel
+    , Wheel.onWheel Wheel
+    ]
 
 
 mouseDownOptions : Mouse.EventOptions

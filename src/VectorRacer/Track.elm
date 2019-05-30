@@ -91,8 +91,12 @@ getSize (Track model) =
 
 
 {-| -}
-getSurface : Int -> Int -> Track -> Maybe Surface
-getSurface x y (Track model) =
+getSurface : Position -> Track -> Maybe Surface
+getSurface position (Track model) =
+    let
+        ( x, y ) =
+            Pixels.inPixels position
+    in
     Raster.get x y model.surfaces
 
 

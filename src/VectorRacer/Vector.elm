@@ -1,20 +1,24 @@
 module VectorRacer.Vector exposing
     ( Vector
+    , ceiling
     , decoder
     , distance
     , divideBy
     , divideByInt
     , encode
+    , floor
     , fromComponents
     , fromFloat
     , fromFloats
     , fromInt
     , fromInts
     , fromQuantities
+    , fromQuantity
     , mean
     , minus
     , multiplyBy
     , plus
+    , round
     , toComponents
     , toFloatVector
     , toFloats
@@ -45,6 +49,14 @@ fromQuantities ( x, y ) =
     Vector
         { x = x
         , y = y
+        }
+
+
+fromQuantity : Quantity number units -> Vector number units
+fromQuantity value =
+    Vector
+        { x = value
+        , y = value
         }
 
 
@@ -172,6 +184,21 @@ distance (Vector a) (Vector b) =
 mean : Vector Float units -> Vector Float units -> Vector Float units
 mean a b =
     a |> plus b |> divideBy (fromFloats ( 2, 2 ))
+
+
+round : Vector Float units -> Vector Int units
+round =
+    map Quantity.round
+
+
+floor : Vector Float units -> Vector Int units
+floor =
+    map Quantity.floor
+
+
+ceiling : Vector Float units -> Vector Int units
+ceiling =
+    map Quantity.ceiling
 
 
 
