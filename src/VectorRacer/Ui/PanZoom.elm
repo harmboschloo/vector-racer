@@ -16,7 +16,6 @@ module VectorRacer.Ui.PanZoom exposing
 
 import Browser.Events
 import Html
-import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse
 import Html.Events.Extra.Touch as Touch
 import Html.Events.Extra.Wheel as Wheel
@@ -553,14 +552,14 @@ subscriptions (PanZoom { state }) =
 -- VIEW --
 
 
-withEvents : (Msg -> msg) -> List (Html.Attribute msg) -> List (Html.Attribute msg)
-withEvents toMsg attributes =
-    (Mouse.onWithOptions "mousedown" mouseDownOptions MouseDown |> Html.Attributes.map toMsg)
-        :: (Touch.onStart TouchStart |> Html.Attributes.map toMsg)
-        :: (Touch.onMove TouchMove |> Html.Attributes.map toMsg)
-        :: (Touch.onEnd TouchEnd |> Html.Attributes.map toMsg)
-        :: (Touch.onCancel TouchCancel |> Html.Attributes.map toMsg)
-        :: (Wheel.onWheel Wheel |> Html.Attributes.map toMsg)
+withEvents : List (Html.Attribute Msg) -> List (Html.Attribute Msg)
+withEvents attributes =
+    Mouse.onWithOptions "mousedown" mouseDownOptions MouseDown
+        :: Touch.onStart TouchStart
+        :: Touch.onMove TouchMove
+        :: Touch.onEnd TouchEnd
+        :: Touch.onCancel TouchCancel
+        :: Wheel.onWheel Wheel
         :: attributes
 
 

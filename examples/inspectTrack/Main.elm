@@ -5,12 +5,20 @@ import Browser.Dom
 import Browser.Events
 import Element
 import Html
+import Html.Attributes
+import Html.Events.Extra.Mouse as Mouse
 import Http
+import Quantity
+import Quantity.Interval as Interval
+import Svg
+import Svg.Attributes
 import Task
-import VectorRacer.Grid as Grid
+import VectorRacer.Grid as Grid exposing (Grid)
 import VectorRacer.Track as Track exposing (Track)
-import VectorRacer.Ui.TrackPanel as TrackPanel exposing (TrackPanel)
-import VectorRacer.Vector.Pixels as Pixels
+import VectorRacer.Ui as Ui
+import VectorRacer.Ui.PanZoom as PanZoom exposing (PanZoom)
+import VectorRacer.Vector as Vector exposing (Vector)
+import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
 
 
 
@@ -29,14 +37,13 @@ type Model
 
 
 type alias WindowSize =
-    { width : Int
-    , height : Int
-    }
+    Vector Float Pixels
 
 
 type alias LoadedModel =
     { track : Track
-    , trackPanel : TrackPanel
+    , trackImage : String
+    , panZoom : PanZoom
     }
 
 
@@ -63,44 +70,36 @@ type Msg
     = GotViewport Browser.Dom.Viewport
     | GotWindowResize Int Int
     | GotTrack String (Result Http.Error Track.DecodeResult)
-    | GotTrackPanelMsg TrackPanel.Msg
+    | GotPanZoomMsg PanZoom.Msg
+    | GotTrackMouseMove Mouse.Event
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( model, msg ) of
         ( LoadingViewport, GotViewport { viewport } ) ->
-            ( LoadingTrack
-                { width = round viewport.width
-                , height = round viewport.height
-                }
+            ( LoadingTrack (Pixels.pixels ( viewport.width, viewport.height ))
             , fetchTrack
             )
 
         ( LoadingTrack _, GotWindowResize width height ) ->
-            ( LoadingTrack { width = width, height = height }, Cmd.none )
+            ( LoadingTrack (Pixels.pixels ( toFloat width, toFloat height )), Cmd.none )
 
         ( LoadingTrack windowSize, GotTrack trackImage (Ok (Ok track)) ) ->
             ( Loaded
                 { track = track
-                , trackPanel =
-                    { panelSize = Pixels.pixels ( windowSize.width, windowSize.height )
-                    , trackSize = Track.getSize track
-                    , trackImage = trackImage
-                    }
-                        |> TrackPanel.init
-                        |> TrackPanel.setGrid
-                            (track
-                                |> Track.getStartPositions
-                                |> List.head
-                                |> Maybe.map
-                                    (\startPoint ->
-                                        Grid.init
-                                            { anchorPoint = startPoint
-                                            , spacing = Pixels.pixels ( 15, 15 )
-                                            }
-                                    )
+                , trackImage = trackImage
+                , panZoom =
+                    PanZoom.init
+                        |> PanZoom.withScaleBounds (Interval.from (Quantity.float 0.5) (Quantity.float 2.5))
+                        |> PanZoom.withOffset
+                            (windowSize
+                                |> Vector.minus (Track.getSize track |> Vector.toFloatVector)
+                                |> Vector.divideBy (Vector.fromFloat 2)
                             )
+                        |> PanZoom.withScale
+                            (Quantity.float 1)
+                            (Vector.toFloatVector (Track.getSize track) |> Vector.divideBy (Vector.fromFloat 2))
                 }
             , Cmd.none
             )
@@ -111,22 +110,17 @@ update msg model =
         ( LoadingTrack _, GotTrack _ (Err httpError) ) ->
             ( LoadError (Debug.toString httpError), Cmd.none )
 
-        ( Loaded loadedModel, GotWindowResize width height ) ->
-            ( Loaded
-                { loadedModel
-                    | trackPanel =
-                        TrackPanel.setPanelSize
-                            (Pixels.pixels ( width, height ))
-                            loadedModel.trackPanel
-                }
+        ( Loaded loadedModel, GotPanZoomMsg panZoomMsg ) ->
+            ( Loaded { loadedModel | panZoom = PanZoom.update panZoomMsg loadedModel.panZoom }
             , Cmd.none
             )
 
-        ( Loaded loadedModel, GotTrackPanelMsg trackPanelMsg ) ->
-            ( Loaded
-                { loadedModel | trackPanel = TrackPanel.update trackPanelMsg loadedModel.trackPanel }
-            , Cmd.none
-            )
+        ( Loaded _, GotTrackMouseMove event ) ->
+            let
+                _ =
+                    Debug.log "mouse" event
+            in
+            ( model, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -149,10 +143,7 @@ subscriptions model =
             Sub.none
 
         Loaded loadedModel ->
-            Sub.batch
-                [ Browser.Events.onResize GotWindowResize
-                , TrackPanel.subscriptions loadedModel.trackPanel |> Sub.map GotTrackPanelMsg
-                ]
+            PanZoom.subscriptions loadedModel.panZoom |> Sub.map GotPanZoomMsg
 
 
 
@@ -173,15 +164,54 @@ view model =
             LoadError error ->
                 [ Html.text "Error: ", Html.text error ]
 
-            Loaded { trackPanel } ->
+            Loaded { track, trackImage, panZoom } ->
+                let
+                    transform =
+                        PanZoom.getTransformString panZoom
+                in
                 [ Element.layout
                     [ Element.width Element.fill
                     , Element.height Element.fill
                     , Element.clip
                     ]
-                    (TrackPanel.view trackPanel |> Element.map GotTrackPanelMsg)
+                    (Element.html <|
+                        Svg.svg
+                            ([ Svg.Attributes.width "100%"
+                             , Svg.Attributes.height "100%"
+                             ]
+                                |> PanZoom.withEvents
+                                |> List.map (Html.Attributes.map GotPanZoomMsg)
+                            )
+                            [ Svg.g
+                                [ Svg.Attributes.transform transform
+                                ]
+                                [ Ui.trackImage trackImage (Track.getSize track)
+                                , Ui.trackBorder (Track.getSize track)
+                                ]
+                            , case getGrid track of
+                                Just grid ->
+                                    Ui.gridWithTransform transform grid
+
+                                Nothing ->
+                                    Svg.g [] []
+                            ]
+                    )
                 ]
     }
+
+
+getGrid : Track -> Maybe Grid
+getGrid track =
+    track
+        |> Track.getStartPositions
+        |> List.head
+        |> Maybe.map
+            (\startPoint ->
+                Grid.init
+                    { anchorPoint = startPoint
+                    , spacing = Pixels.pixels ( 15, 15 )
+                    }
+            )
 
 
 

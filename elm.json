@@ -11,8 +11,8 @@
         "VectorRacer.Track",
         "VectorRacer.Vector",
         "VectorRacer.Vector.Pixels",
-        "VectorRacer.Ui.PanZoom",
-        "VectorRacer.Ui.TrackPanel"
+        "VectorRacer.Ui",
+        "VectorRacer.Ui.PanZoom"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
@@ -24,7 +24,6 @@
         "elm/svg": "1.0.1 <= v < 2.0.0",
         "ianmackenzie/elm-units": "2.0.2 <= v < 3.0.0",
         "ianmackenzie/elm-units-interval": "1.0.0 <= v < 2.0.0",
-        "mdgriffith/elm-ui": "1.1.0 <= v < 2.0.0",
         "mpizenberg/elm-pointer-events": "4.0.1 <= v < 5.0.0"
     },
     "test-dependencies": {
