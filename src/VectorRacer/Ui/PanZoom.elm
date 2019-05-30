@@ -322,10 +322,10 @@ wheelZoom event =
             1 + event.deltaY * 0.0015
 
         Wheel.DeltaLine ->
-            1 + event.deltaY * 0.0015
+            1 + event.deltaY * 0.075
 
         Wheel.DeltaPage ->
-            1 + event.deltaY * 0.0015
+            1 + event.deltaY * 0.15
 
 
 
