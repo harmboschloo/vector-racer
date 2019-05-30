@@ -13,6 +13,8 @@ module VectorRacer.Ui.TrackPanel exposing
 -}
 
 import Element exposing (Element)
+import Quantity
+import Quantity.Interval as Interval
 import Svg exposing (Svg)
 import Svg.Attributes
 import VectorRacer.Grid as Grid exposing (Grid)
@@ -55,7 +57,9 @@ init { panelSize, trackSize, trackImage } =
         , trackSize = trackSize
         , trackImage = trackImage
         , grid = Nothing
-        , panZoom = PanZoom.init
+        , panZoom =
+            PanZoom.init
+                |> PanZoom.withScaleBounds (Interval.from (Quantity.float 0.5) (Quantity.float 2.5))
         }
 
 
