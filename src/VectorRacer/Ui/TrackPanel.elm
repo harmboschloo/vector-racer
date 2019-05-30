@@ -60,6 +60,14 @@ init { panelSize, trackSize, trackImage } =
         , panZoom =
             PanZoom.init
                 |> PanZoom.withScaleBounds (Interval.from (Quantity.float 0.5) (Quantity.float 2.5))
+                |> PanZoom.withOffset
+                    (Vector.toFloatVector panelSize
+                        |> Vector.minus (Vector.toFloatVector trackSize)
+                        |> Vector.divideBy (Vector.fromFloat 2)
+                    )
+                |> PanZoom.withScale
+                    (Quantity.float 1.5)
+                    (Vector.toFloatVector trackSize |> Vector.divideBy (Vector.fromFloat 2))
         }
 
 

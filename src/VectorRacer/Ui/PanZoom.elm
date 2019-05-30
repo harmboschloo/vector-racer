@@ -9,6 +9,8 @@ module VectorRacer.Ui.PanZoom exposing
     , subscriptions
     , update
     , withEvents
+    , withOffset
+    , withScale
     , withScaleBounds
     )
 
@@ -109,6 +111,36 @@ withScaleBounds scaleInterval (PanZoom { config, state }) =
     PanZoom
         { config = newConfig
         , state = checkBounds newConfig state
+        }
+
+
+withOffset : Point -> PanZoom -> PanZoom
+withOffset offset (PanZoom { config, state }) =
+    let
+        { scale } =
+            getStateTransform state
+
+        newState =
+            resetStateWith { offset = offset, scale = scale } state
+    in
+    PanZoom
+        { config = config
+        , state = checkBounds config newState
+        }
+
+
+withScale : Scale -> Point -> PanZoom -> PanZoom
+withScale scale scaleCenter (PanZoom { config, state }) =
+    let
+        { offset } =
+            getStateTransform state
+
+        newState =
+            updateScale scale (scaleCenter |> Vector.plus offset) state
+    in
+    PanZoom
+        { config = config
+        , state = checkBounds config newState
         }
 
 
@@ -220,8 +252,8 @@ updateState msg state =
             MouseActive
                 { baseOffset = offset
                 , baseScale = scale
-                , down = Pixels.pixels event.clientPos
-                , current = Pixels.pixels event.clientPos
+                , down = Pixels.pixels event.pagePos
+                , current = Pixels.pixels event.pagePos
                 }
 
         MouseMove event ->
@@ -230,7 +262,7 @@ updateState msg state =
                     state
 
                 MouseActive mouseState ->
-                    MouseActive { mouseState | current = Pixels.pixels event.clientPos }
+                    MouseActive { mouseState | current = Pixels.pixels event.pagePos }
 
                 TouchActive _ ->
                     state
@@ -241,7 +273,7 @@ updateState msg state =
                     state
 
                 MouseActive _ ->
-                    Inactive (getInactiveState (Pixels.pixels event.clientPos) state)
+                    Inactive (getInactiveState (Pixels.pixels event.pagePos) state)
 
                 TouchActive _ ->
                     state
@@ -294,6 +326,59 @@ updateState msg state =
 
                 TouchActive _ ->
                     state
+
+
+updateScale : Scale -> Point -> State -> State
+updateScale newScale center state =
+    let
+        { offset, scale } =
+            getStateTransform state
+
+        newZoom =
+            Quantity.ratio newScale scale
+
+        newOffset =
+            updateOffsetWithZoom newZoom center offset
+    in
+    resetStateWith { offset = newOffset, scale = newScale } state
+
+
+updateOffsetWithZoom : Float -> Point -> Point -> Point
+updateOffsetWithZoom zoom center offset =
+    let
+        offsetDiff =
+            offset |> Vector.minus center
+
+        offsetDiffZoomed =
+            offsetDiff |> Vector.multiplyBy (Vector.fromFloat zoom)
+    in
+    offset |> Vector.plus offsetDiffZoomed |> Vector.minus offsetDiff
+
+
+resetStateWith : { offset : Point, scale : Scale } -> State -> State
+resetStateWith { offset, scale } state =
+    case state of
+        Inactive _ ->
+            Inactive
+                { offset = offset
+                , scale = scale
+                , lastEventPoint = offset
+                }
+
+        MouseActive { current } ->
+            MouseActive
+                { baseOffset = offset
+                , baseScale = scale
+                , down = current
+                , current = current
+                }
+
+        TouchActive { touches } ->
+            TouchActive
+                { baseOffset = offset
+                , baseScale = scale
+                , touches = touches |> List.map (\touch -> { touch | start = touch.current })
+                }
 
 
 getInactiveState : Point -> State -> InactiveState
@@ -355,8 +440,8 @@ resetTouches event state =
             List.map
                 (\touch ->
                     { id = touch.identifier
-                    , start = Pixels.pixels touch.clientPos
-                    , current = Pixels.pixels touch.clientPos
+                    , start = Pixels.pixels touch.pagePos
+                    , current = Pixels.pixels touch.pagePos
                     }
                 )
                 event.touches
@@ -368,7 +453,7 @@ updateTouches touch touches =
     List.map
         (\touchData ->
             if touchData.id == touch.identifier then
-                { touchData | current = Pixels.pixels touch.clientPos }
+                { touchData | current = Pixels.pixels touch.pagePos }
 
             else
                 touchData
@@ -383,7 +468,7 @@ updateZoom event offset scale =
             wheelZoom event
 
         eventPoint =
-            Pixels.pixels event.mouseEvent.clientPos
+            Pixels.pixels event.mouseEvent.pagePos
     in
     { offset = updateOffsetWithZoom zoom eventPoint offset
     , scale = Quantity.multiplyBy zoom scale
@@ -402,18 +487,6 @@ wheelZoom event =
 
         Wheel.DeltaPage ->
             1 + event.deltaY * 0.15
-
-
-updateOffsetWithZoom : Float -> Point -> Point -> Point
-updateOffsetWithZoom zoom eventPoint offset =
-    let
-        offsetDiff =
-            offset |> Vector.minus eventPoint
-
-        offsetDiffZoomed =
-            offsetDiff |> Vector.multiplyBy (Vector.fromFloat zoom)
-    in
-    offset |> Vector.plus offsetDiffZoomed |> Vector.minus offsetDiff
 
 
 checkBounds : Config -> State -> State
@@ -437,48 +510,23 @@ checkBounds config state =
                 else
                     Interval.maxValue scaleInterval
 
-            newZoom =
-                Quantity.ratio newScale scale
-        in
-        case state of
-            Inactive { lastEventPoint } ->
-                let
-                    newOffset =
-                        updateOffsetWithZoom newZoom lastEventPoint offset
-                in
-                Inactive
-                    { offset = newOffset
-                    , scale = newScale
-                    , lastEventPoint = lastEventPoint
-                    }
+            zoomCenter =
+                case state of
+                    Inactive { lastEventPoint } ->
+                        lastEventPoint
 
-            MouseActive { current } ->
-                let
-                    newOffset =
-                        updateOffsetWithZoom newZoom current offset
-                in
-                MouseActive
-                    { baseOffset = newOffset
-                    , baseScale = newScale
-                    , down = current
-                    , current = current
-                    }
+                    MouseActive { current } ->
+                        current
 
-            TouchActive { touches } ->
-                let
-                    newOffset =
+                    TouchActive { touches } ->
                         case getTouchOffset touches of
                             Just touchOffset ->
-                                updateOffsetWithZoom newZoom touchOffset offset
+                                touchOffset
 
                             Nothing ->
                                 offset
-                in
-                TouchActive
-                    { baseOffset = newOffset
-                    , baseScale = newScale
-                    , touches = touches |> List.map (\touch -> { touch | start = touch.current })
-                    }
+        in
+        updateScale newScale zoomCenter state
 
 
 
