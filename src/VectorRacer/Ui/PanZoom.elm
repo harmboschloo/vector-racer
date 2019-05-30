@@ -1,6 +1,8 @@
 module VectorRacer.Ui.PanZoom exposing
     ( Msg
     , PanZoom
+    , Point
+    , Scale
     , getTransform
     , getTransformString
     , init
@@ -49,14 +51,14 @@ type State
 
 
 type alias InactiveState =
-    { offset : Offset
+    { offset : Point
     , scale : Scale
-    , lastEventOffset : Point
+    , lastEventPoint : Point
     }
 
 
 type alias MouseState =
-    { baseOffset : Offset
+    { baseOffset : Point
     , baseScale : Scale
     , down : Point
     , current : Point
@@ -64,7 +66,7 @@ type alias MouseState =
 
 
 type alias TouchState =
-    { baseOffset : Offset
+    { baseOffset : Point
     , baseScale : Scale
     , touches : List TouchData
     }
@@ -75,10 +77,6 @@ type alias TouchData =
     , start : Point
     , current : Point
     }
-
-
-type alias Offset =
-    Vector Float Pixels
 
 
 type alias Point =
@@ -97,7 +95,7 @@ init =
             Inactive
                 { offset = Pixels.pixels ( 0, 0 )
                 , scale = Quantity.float 1
-                , lastEventOffset = Pixels.pixels ( 0, 0 )
+                , lastEventPoint = Pixels.pixels ( 0, 0 )
                 }
         }
 
@@ -114,16 +112,12 @@ withScaleBounds scaleInterval (PanZoom { config, state }) =
         }
 
 
-
--- TODO: centerOn...
-
-
-getTransform : PanZoom -> { offset : Offset, scale : Scale }
+getTransform : PanZoom -> { offset : Point, scale : Scale }
 getTransform (PanZoom { state }) =
     getStateTransform state
 
 
-getStateTransform : State -> { offset : Offset, scale : Scale }
+getStateTransform : State -> { offset : Point, scale : Scale }
 getStateTransform state =
     case state of
         Inactive { offset, scale } ->
@@ -190,18 +184,6 @@ getTransformString model =
         ++ ") scale("
         ++ String.fromFloat scale
         ++ ")"
-
-
-getInactiveState : Point -> State -> InactiveState
-getInactiveState eventOffset state =
-    let
-        { offset, scale } =
-            getStateTransform state
-    in
-    { offset = offset
-    , scale = scale
-    , lastEventOffset = eventOffset
-    }
 
 
 
@@ -295,7 +277,7 @@ updateState msg state =
                     Inactive
                         { offset = zoom.offset
                         , scale = zoom.scale
-                        , lastEventOffset = zoom.eventOffset
+                        , lastEventPoint = zoom.eventPoint
                         }
 
                 MouseActive mouse ->
@@ -312,6 +294,18 @@ updateState msg state =
 
                 TouchActive _ ->
                     state
+
+
+getInactiveState : Point -> State -> InactiveState
+getInactiveState eventPoint state =
+    let
+        { offset, scale } =
+            getStateTransform state
+    in
+    { offset = offset
+    , scale = scale
+    , lastEventPoint = eventPoint
+    }
 
 
 endTouches : Touch.Event -> State -> State
@@ -382,18 +376,18 @@ updateTouches touch touches =
         touches
 
 
-updateZoom : Wheel.Event -> Offset -> Scale -> { offset : Offset, scale : Scale, eventOffset : Point }
+updateZoom : Wheel.Event -> Point -> Scale -> { offset : Point, scale : Scale, eventPoint : Point }
 updateZoom event offset scale =
     let
         zoom =
             wheelZoom event
 
-        eventOffset =
+        eventPoint =
             Pixels.pixels event.mouseEvent.clientPos
     in
-    { offset = updateOffsetWithZoom zoom eventOffset offset
+    { offset = updateOffsetWithZoom zoom eventPoint offset
     , scale = Quantity.multiplyBy zoom scale
-    , eventOffset = eventOffset
+    , eventPoint = eventPoint
     }
 
 
@@ -410,11 +404,11 @@ wheelZoom event =
             1 + event.deltaY * 0.15
 
 
-updateOffsetWithZoom : Float -> Point -> Offset -> Offset
-updateOffsetWithZoom zoom eventOffset offset =
+updateOffsetWithZoom : Float -> Point -> Point -> Point
+updateOffsetWithZoom zoom eventPoint offset =
     let
         offsetDiff =
-            offset |> Vector.minus eventOffset
+            offset |> Vector.minus eventPoint
 
         offsetDiffZoomed =
             offsetDiff |> Vector.multiplyBy (Vector.fromFloat zoom)
@@ -447,15 +441,15 @@ checkBounds config state =
                 Quantity.ratio newScale scale
         in
         case state of
-            Inactive { lastEventOffset } ->
+            Inactive { lastEventPoint } ->
                 let
                     newOffset =
-                        updateOffsetWithZoom newZoom lastEventOffset offset
+                        updateOffsetWithZoom newZoom lastEventPoint offset
                 in
                 Inactive
                     { offset = newOffset
                     , scale = newScale
-                    , lastEventOffset = lastEventOffset
+                    , lastEventPoint = lastEventPoint
                     }
 
             MouseActive { current } ->
