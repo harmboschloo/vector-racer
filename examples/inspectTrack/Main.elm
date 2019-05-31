@@ -7,6 +7,7 @@ import Element
 import Html
 import Html.Attributes
 import Html.Events.Extra.Mouse as Mouse
+import Html.Events.Extra.Touch as Touch
 import Http
 import Quantity
 import Quantity.Interval as Interval
@@ -74,6 +75,7 @@ type Msg
     | GotTrack String (Result Http.Error Track.DecodeResult)
     | GotPanZoomMsg PanZoom.Msg
     | GotTrackMouseMove Mouse.Event
+    | GotTrackTouchStart Touch.Event
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -119,25 +121,38 @@ update msg model =
             )
 
         ( Loaded loadedModel, GotTrackMouseMove event ) ->
-            let
-                trackPosition =
-                    Pixels.pixels event.pagePos
-                        |> PanZoom.toLocal loadedModel.panZoom
-                        |> Vector.floor
-            in
-            ( Loaded
-                { loadedModel
-                    | surface =
-                        Just
-                            ( trackPosition
-                            , Track.getSurface trackPosition loadedModel.track
-                            )
-                }
-            , Cmd.none
-            )
+            updateSurface event.pagePos loadedModel
+
+        ( Loaded loadedModel, GotTrackTouchStart event ) ->
+            case event.touches of
+                touch :: _ ->
+                    updateSurface touch.pagePos loadedModel
+
+                _ ->
+                    ( model, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
+
+
+updateSurface : ( Float, Float ) -> LoadedModel -> ( Model, Cmd Msg )
+updateSurface position loadedModel =
+    let
+        trackPosition =
+            Pixels.pixels position
+                |> PanZoom.toLocal loadedModel.panZoom
+                |> Vector.floor
+    in
+    ( Loaded
+        { loadedModel
+            | surface =
+                Just
+                    ( trackPosition
+                    , Track.getSurface trackPosition loadedModel.track
+                    )
+        }
+    , Cmd.none
+    )
 
 
 
@@ -192,6 +207,7 @@ view model =
                     (Element.html <|
                         Svg.svg
                             (Mouse.onMove GotTrackMouseMove
+                                :: Touch.onStart GotTrackTouchStart
                                 :: Svg.Attributes.width "100%"
                                 :: Svg.Attributes.height "100%"
                                 :: List.map (Html.Attributes.map GotPanZoomMsg) PanZoom.events
