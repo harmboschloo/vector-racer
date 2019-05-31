@@ -62,7 +62,7 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case Debug.log "msg" msg of
+    case msg of
         ImageBytesLoaded size bytes ->
             case Track.fromMaskBytes size bytes of
                 Ok track ->
@@ -72,7 +72,7 @@ update msg model =
 
                 Err error ->
                     ( model
-                    , onError (error |> Debug.toString |> Json.Encode.string)
+                    , onError (error |> Track.maskBytesErrorToString |> Json.Encode.string)
                     )
 
 

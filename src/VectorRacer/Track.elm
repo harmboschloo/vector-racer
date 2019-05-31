@@ -1,8 +1,8 @@
 module VectorRacer.Track exposing
     ( Track, Surface(..), Checkpoint(..), Size
     , getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
-    , encode, decoder, DecodeResult, DecodeError(..)
-    , fromMaskBytes, MaskBytesError(..), Color
+    , encode, decoder, DecodeResult, DecodeError(..), decodeErrorToString
+    , fromMaskBytes, MaskBytesError(..), Color, maskBytesErrorToString
     , getSurfaces, fromSurfaces
     , SurfacesError(..)
     )
@@ -18,12 +18,12 @@ module VectorRacer.Track exposing
 
 # JSON
 
-@docs encode, decoder, DecodeResult, DecodeError
+@docs encode, decoder, DecodeResult, DecodeError, decodeErrorToString
 
 
 # Mask
 
-@docs fromMaskBytes, MaskBytesError, Color
+@docs fromMaskBytes, MaskBytesError, Color, maskBytesErrorToString
 
 
 # Surfaces
@@ -212,6 +212,19 @@ type alias TrackDecodeData =
     }
 
 
+decodeErrorToString : DecodeError -> String
+decodeErrorToString error =
+    case error of
+        InvalidSurfaceError character ->
+            "Invalid surface character: " ++ String.fromChar character
+
+        SurfacesDeserializationError ->
+            "Surfaces deserialization failed"
+
+        NoCheckpointsError ->
+            "No checkpoints found"
+
+
 {-| -}
 decoder : Json.Decode.Decoder DecodeResult
 decoder =
@@ -348,6 +361,35 @@ type MaskBytesError
     = BytesDecodeError
     | InvalidMaskSurfaceError Position Color
     | NoMaskCheckpointsError
+
+
+maskBytesErrorToString : MaskBytesError -> String
+maskBytesErrorToString error =
+    case error of
+        BytesDecodeError ->
+            "Bytes decode error"
+
+        InvalidMaskSurfaceError position color ->
+            let
+                ( x, y ) =
+                    Pixels.inPixels position
+            in
+            "Invalid surfaces at ("
+                ++ String.fromInt x
+                ++ ","
+                ++ String.fromInt y
+                ++ ") :"
+                ++ " r:"
+                ++ String.fromInt color.r
+                ++ " g:"
+                ++ String.fromInt color.g
+                ++ " b:"
+                ++ String.fromInt color.b
+                ++ " a:"
+                ++ String.fromInt color.a
+
+        NoMaskCheckpointsError ->
+            "No checkpoints found"
 
 
 {-| -}

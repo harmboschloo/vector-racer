@@ -108,10 +108,10 @@ update msg model =
             )
 
         ( LoadingTrack _, GotTrack _ (Ok (Err trackError)) ) ->
-            ( LoadError (Debug.toString trackError), Cmd.none )
+            ( LoadError (Track.decodeErrorToString trackError), Cmd.none )
 
-        ( LoadingTrack _, GotTrack _ (Err httpError) ) ->
-            ( LoadError (Debug.toString httpError), Cmd.none )
+        ( LoadingTrack _, GotTrack _ (Err _) ) ->
+            ( LoadError "Http error", Cmd.none )
 
         ( Loaded loadedModel, GotPanZoomMsg panZoomMsg ) ->
             ( Loaded { loadedModel | panZoom = PanZoom.update panZoomMsg loadedModel.panZoom }
@@ -187,7 +187,7 @@ view model =
                     [ Element.width Element.fill
                     , Element.height Element.fill
                     , Element.clip
-                    , Element.inFront (Element.text (Debug.toString surface))
+                    , Element.inFront (Element.el [ Element.centerX ] (Element.text (surfaceResultToString surface)))
                     ]
                     (Element.html <|
                         Svg.svg
@@ -228,6 +228,52 @@ view model =
                     )
                 ]
     }
+
+
+surfaceResultToString : Maybe ( Position, Maybe Track.Surface ) -> String
+surfaceResultToString result =
+    case result of
+        Just ( position, maybeSurface ) ->
+            let
+                ( x, y ) =
+                    Pixels.inPixels position
+
+                surfaceString =
+                    case maybeSurface of
+                        Just Track.Road ->
+                            "Road"
+
+                        Just (Track.Checkpoint Track.Checkpoint1) ->
+                            "Checkpoint1"
+
+                        Just (Track.Checkpoint Track.Checkpoint2) ->
+                            "Checkpoint2"
+
+                        Just (Track.Checkpoint Track.Checkpoint3) ->
+                            "Checkpoint3"
+
+                        Just (Track.Checkpoint Track.Checkpoint4) ->
+                            "Checkpoint4"
+
+                        Just (Track.Checkpoint Track.Checkpoint5) ->
+                            "Checkpoint5"
+
+                        Just Track.Curb ->
+                            "Curb"
+
+                        Just Track.Gravel ->
+                            "Gravel"
+
+                        Just Track.Wall ->
+                            "Wall"
+
+                        Nothing ->
+                            "-"
+            in
+            String.fromInt x ++ "," ++ String.fromInt y ++ ": " ++ surfaceString
+
+        Nothing ->
+            ""
 
 
 getGrid : Track -> Maybe Grid
