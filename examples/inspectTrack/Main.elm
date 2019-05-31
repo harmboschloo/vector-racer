@@ -203,12 +203,12 @@ view model =
                     , Element.height Element.fill
                     , Element.clip
                     , Element.inFront (Element.el [ Element.centerX ] (Element.text (surfaceResultToString surface)))
+                    , Element.htmlAttribute (Touch.onStart GotTrackTouchStart)
+                    , Element.htmlAttribute (Mouse.onMove GotTrackMouseMove)
                     ]
                     (Element.html <|
                         Svg.svg
-                            (Mouse.onMove GotTrackMouseMove
-                                :: Touch.onStart GotTrackTouchStart
-                                :: Svg.Attributes.width "100%"
+                            (Svg.Attributes.width "100%"
                                 :: Svg.Attributes.height "100%"
                                 :: List.map (Html.Attributes.map GotPanZoomMsg) PanZoom.events
                             )
