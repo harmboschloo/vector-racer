@@ -1,11 +1,9 @@
 port module Main exposing (main)
 
-import Bytes exposing (Bytes)
-import File exposing (File)
+import Base64
 import Json.Decode
 import Json.Encode
-import Task
-import VectorRacer.Track as Track
+import VectorRacer.Track as Track exposing (Track)
 import VectorRacer.Vector.Pixels as Pixels
 
 
@@ -13,67 +11,69 @@ import VectorRacer.Vector.Pixels as Pixels
 -- INIT --
 
 
-type alias Flags =
-    Json.Decode.Value
-
-
 type alias Model =
     ()
 
 
-type alias ImageDataFile =
+type alias Flags =
     { width : Int
     , height : Int
-    , bytesFile : File
+    , bytesString : String
     }
 
 
-imageDataFileDecoder : Json.Decode.Decoder ImageDataFile
-imageDataFileDecoder =
-    Json.Decode.map3 ImageDataFile
+init : Json.Decode.Value -> ( Model, Cmd Msg )
+init flags =
+    decodeFlags flags
+        |> Result.andThen decodeTrack
+        |> resultCmd
+        |> Tuple.pair ()
+
+
+decodeFlags : Json.Decode.Value -> Result String Flags
+decodeFlags =
+    Json.Decode.decodeValue flagsDecoder >> Result.mapError Json.Decode.errorToString
+
+
+flagsDecoder : Json.Decode.Decoder Flags
+flagsDecoder =
+    Json.Decode.map3 Flags
         (Json.Decode.field "width" Json.Decode.int)
         (Json.Decode.field "height" Json.Decode.int)
-        (Json.Decode.field "bytesFile" File.decoder)
+        (Json.Decode.field "bytesString" Json.Decode.string)
 
 
-init : Flags -> ( Model, Cmd Msg )
-init flags =
-    case Json.Decode.decodeValue imageDataFileDecoder flags of
-        Ok file ->
-            ( ()
-            , Task.perform
-                (ImageBytesLoaded (Pixels.pixels ( file.width, file.height )))
-                (File.toBytes file.bytesFile)
+decodeTrack : Flags -> Result String Track
+decodeTrack { width, height, bytesString } =
+    Base64.toBytes bytesString
+        |> Maybe.map
+            (Track.fromMaskBytes (Pixels.pixels ( width, height ))
+                >> Result.mapError Track.maskBytesErrorToString
             )
+        |> Maybe.withDefault (Err "Base64.toBytes failed")
+
+
+resultCmd : Result String Track -> Cmd Msg
+resultCmd result =
+    case result of
+        Ok track ->
+            onTrack (Track.encode track)
 
         Err error ->
-            ( ()
-            , onError (error |> Json.Decode.errorToString |> Json.Encode.string)
-            )
+            onError (Json.Encode.string error)
 
 
 
 -- UPDATE --
 
 
-type Msg
-    = ImageBytesLoaded Track.Size Bytes
+type alias Msg =
+    ()
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        ImageBytesLoaded size bytes ->
-            case Track.fromMaskBytes size bytes of
-                Ok track ->
-                    ( model
-                    , onTrack (Track.encode track)
-                    )
-
-                Err error ->
-                    ( model
-                    , onError (error |> Track.maskBytesErrorToString |> Json.Encode.string)
-                    )
+update _ model =
+    ( model, Cmd.none )
 
 
 
@@ -99,7 +99,7 @@ subscriptions _ =
 -- MAIN --
 
 
-main : Program Flags Model Msg
+main : Program Json.Decode.Value Model Msg
 main =
     Platform.worker
         { init = init
