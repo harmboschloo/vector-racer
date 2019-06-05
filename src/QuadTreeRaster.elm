@@ -324,7 +324,7 @@ foldlHelp fn acc node nextNodes =
 
 foldr : (a -> b -> b) -> b -> Raster a -> b
 foldr fn acc (Raster model) =
-    foldlHelp fn acc model.root []
+    foldrHelp fn acc model.root []
 
 
 foldrHelp : (a -> b -> b) -> b -> Node a -> List (Node a) -> b
