@@ -4,7 +4,6 @@ module VectorRacer.Steps exposing
     , steps
     )
 
-import Pixels exposing (Pixels)
 import Quantity exposing (Quantity(..))
 
 
@@ -17,6 +16,6 @@ steps =
     Quantity
 
 
-inSteps : Quantity number Pixels -> number
+inSteps : Quantity number Steps -> number
 inSteps (Quantity value) =
     value
