@@ -2,7 +2,7 @@ module VectorRacer.Track exposing
     ( Track, Surface(..), Checkpoint(..), Size
     , getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
     , encode, decoder, DecodeResult, DecodeError(..), decodeErrorToString
-    , fromMaskBytes, MaskBytesError(..), Color, maskBytesErrorToString
+    , fromMaskBytes, MaskBytesError(..), maskBytesErrorToString
     , getSurfaces, fromSurfaces
     , SurfacesError(..)
     )
@@ -23,7 +23,7 @@ module VectorRacer.Track exposing
 
 # Mask
 
-@docs fromMaskBytes, MaskBytesError, Color, maskBytesErrorToString
+@docs fromMaskBytes, MaskBytesError, maskBytesErrorToString
 
 
 # Surfaces
@@ -38,7 +38,8 @@ import Json.Decode
 import Json.Encode
 import QuadTreeRaster as Raster exposing (Raster)
 import VectorRacer exposing (Position)
-import VectorRacer.Vector as Vector exposing (Vector)
+import VectorRacer.Color as Color exposing (Color)
+import VectorRacer.Vector exposing (Vector)
 import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
 
 
@@ -483,7 +484,7 @@ maskBytesLoop ( index, { surfaces, checkpoints, startPositions } as data ) =
                     InvalidMaskSurface ->
                         Bytes.Decode.Done (Err (InvalidMaskSurfaceError position color))
             )
-            colorDecoder
+            Color.bytesDecoder
 
     else
         Bytes.Decode.succeed (Bytes.Decode.Done (Ok data))
@@ -501,24 +502,6 @@ updateMaskSurfaceRaster position surface surfaces =
             Pixels.inPixels position
     in
     Raster.set x y surface surfaces
-
-
-{-| -}
-type alias Color =
-    { r : Int
-    , g : Int
-    , b : Int
-    , a : Int
-    }
-
-
-colorDecoder : Bytes.Decode.Decoder Color
-colorDecoder =
-    Bytes.Decode.map4 Color
-        Bytes.Decode.unsignedInt8
-        Bytes.Decode.unsignedInt8
-        Bytes.Decode.unsignedInt8
-        Bytes.Decode.unsignedInt8
 
 
 type MaskSurface
