@@ -5,7 +5,7 @@ import Dict
 import Expect
 import Fuzz
 import QuadTreeRaster as Raster exposing (Size, Token(..))
-import QuadTreeRaster.Internal as Internal exposing (Model, Node(..), Raster(..))
+import QuadTreeRaster.Internal as Internal exposing (Node(..), Raster(..))
 import Test exposing (Test)
 
 
@@ -151,18 +151,18 @@ suite =
                                 }
                         }
             in
-            [ Test.test "q1 edge 0 0" (\_ -> Raster.get 0 0 raster |> Expect.equal (Just A))
-            , Test.test "q1 edge 1 0" (\_ -> Raster.get 4 0 raster |> Expect.equal (Just A))
-            , Test.test "q1 edge 0 1" (\_ -> Raster.get 0 7 raster |> Expect.equal (Just A))
-            , Test.test "q1 edge 1 1" (\_ -> Raster.get 4 7 raster |> Expect.equal (Just A))
-            , Test.test "q3 edge 0 0" (\_ -> Raster.get 0 8 raster |> Expect.equal (Just C))
-            , Test.test "q3 edge 1 0" (\_ -> Raster.get 4 8 raster |> Expect.equal (Just C))
-            , Test.test "q3 edge 0 1" (\_ -> Raster.get 0 9 raster |> Expect.equal (Just C))
-            , Test.test "q3 edge 1 1" (\_ -> Raster.get 4 9 raster |> Expect.equal (Just C))
-            , Test.test "out of bounds left" (\_ -> Raster.get -1 0 raster |> Expect.equal Nothing)
-            , Test.test "out of bounds top" (\_ -> Raster.get 0 -1 raster |> Expect.equal Nothing)
-            , Test.test "out of bounds right" (\_ -> Raster.get 5 0 raster |> Expect.equal Nothing)
-            , Test.test "out of bounds bottom" (\_ -> Raster.get 0 10 raster |> Expect.equal Nothing)
+            [ Test.test "q1 edge 0 0" (\_ -> Raster.get ( 0, 0 ) raster |> Expect.equal (Just A))
+            , Test.test "q1 edge 1 0" (\_ -> Raster.get ( 4, 0 ) raster |> Expect.equal (Just A))
+            , Test.test "q1 edge 0 1" (\_ -> Raster.get ( 0, 7 ) raster |> Expect.equal (Just A))
+            , Test.test "q1 edge 1 1" (\_ -> Raster.get ( 4, 7 ) raster |> Expect.equal (Just A))
+            , Test.test "q3 edge 0 0" (\_ -> Raster.get ( 0, 8 ) raster |> Expect.equal (Just C))
+            , Test.test "q3 edge 1 0" (\_ -> Raster.get ( 4, 8 ) raster |> Expect.equal (Just C))
+            , Test.test "q3 edge 0 1" (\_ -> Raster.get ( 0, 9 ) raster |> Expect.equal (Just C))
+            , Test.test "q3 edge 1 1" (\_ -> Raster.get ( 4, 9 ) raster |> Expect.equal (Just C))
+            , Test.test "out of bounds left" (\_ -> Raster.get ( -1, 0 ) raster |> Expect.equal Nothing)
+            , Test.test "out of bounds top" (\_ -> Raster.get ( 0, -1 ) raster |> Expect.equal Nothing)
+            , Test.test "out of bounds right" (\_ -> Raster.get ( 5, 0 ) raster |> Expect.equal Nothing)
+            , Test.test "out of bounds bottom" (\_ -> Raster.get ( 0, 10 ) raster |> Expect.equal Nothing)
             ]
         , Test.describe "set" <|
             let
@@ -179,14 +179,14 @@ suite =
             [ Test.test "same value leaf"
                 (\_ ->
                     raster
-                        |> Raster.set 0 0 A
+                        |> Raster.set ( 0, 0 ) A
                         |> getRoot
                         |> Expect.equal (LeafNode A)
                 )
             , Test.test "full branching all quads"
                 (\_ ->
                     raster
-                        |> Raster.set 5 3 B
+                        |> Raster.set ( 5, 3 ) B
                         |> getRoot
                         |> Expect.equal
                             (BranchNode
@@ -218,36 +218,36 @@ suite =
             , Test.test "collapse to root all quads"
                 (\_ ->
                     raster
-                        |> Raster.set 5 3 B
-                        |> Raster.set 5 3 A
+                        |> Raster.set ( 5, 3 ) B
+                        |> Raster.set ( 5, 3 ) A
                         |> getRoot
                         |> Expect.equal (LeafNode A)
                 )
             , Test.test "out of bounds left"
                 (\_ ->
                     raster
-                        |> Raster.set -1 0 C
+                        |> Raster.set ( -1, 0 ) C
                         |> getRoot
                         |> Expect.equal (LeafNode A)
                 )
             , Test.test "out of bounds top"
                 (\_ ->
                     raster
-                        |> Raster.set 0 -1 C
+                        |> Raster.set ( 0, -1 ) C
                         |> getRoot
                         |> Expect.equal (LeafNode A)
                 )
             , Test.test "out of bounds right"
                 (\_ ->
                     raster
-                        |> Raster.set 12 0 C
+                        |> Raster.set ( 12, 0 ) C
                         |> getRoot
                         |> Expect.equal (LeafNode A)
                 )
             , Test.test "out of bounds bottom"
                 (\_ ->
                     raster
-                        |> Raster.set 0 10 C
+                        |> Raster.set ( 0, 10 ) C
                         |> getRoot
                         |> Expect.equal (LeafNode A)
                 )
@@ -256,7 +256,7 @@ suite =
             [ Test.test "serialize" <|
                 \_ ->
                     Raster.init (Size 12 10) A
-                        |> Raster.set 5 3 B
+                        |> Raster.set ( 5, 3 ) B
                         |> Raster.serialize
                         |> Expect.equal
                             [ Leaf A
@@ -301,7 +301,7 @@ suite =
                         |> Expect.equal
                             (Just
                                 (Raster.init (Size 12 10) A
-                                    |> Raster.set 5 3 B
+                                    |> Raster.set ( 5, 3 ) B
                                 )
                             )
             ]
@@ -323,7 +323,7 @@ suite =
                                             else
                                                 Just value
                                     in
-                                    Raster.get x y >> Expect.equal expectedValue
+                                    Raster.get ( x, y ) >> Expect.equal expectedValue
                                 )
                         )
         , Test.fuzz rasterValuesFuzzer "serialize/deserialize fuzz values" <|
@@ -347,7 +347,7 @@ isPowerOfTwo n =
 
 setRasterValues : List ( ( Int, Int ), Value ) -> Raster Value -> Raster Value
 setRasterValues values raster =
-    List.foldl (\( ( x, y ), value ) -> Raster.set x y value) raster values
+    List.foldl (\( point, value ) -> Raster.set point value) raster values
 
 
 rasterValuesFuzzer : Fuzz.Fuzzer ( Raster Value, Size, List ( ( Int, Int ), Value ) )

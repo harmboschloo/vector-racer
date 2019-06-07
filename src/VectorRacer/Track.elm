@@ -94,11 +94,7 @@ getSize (Track model) =
 {-| -}
 getSurface : Position -> Track -> Maybe Surface
 getSurface position (Track model) =
-    let
-        ( x, y ) =
-            Pixels.inPixels position
-    in
-    Raster.get x y model.surfaces
+    Raster.get (Pixels.inPixels position) model.surfaces
 
 
 {-| -}
@@ -497,11 +493,7 @@ indexToPosition { width } index =
 
 updateMaskSurfaceRaster : Position -> Surface -> Raster Surface -> Raster Surface
 updateMaskSurfaceRaster position surface surfaces =
-    let
-        ( x, y ) =
-            Pixels.inPixels position
-    in
-    Raster.set x y surface surfaces
+    Raster.set (Pixels.inPixels position) surface surfaces
 
 
 type MaskSurface
@@ -592,11 +584,7 @@ checkStartPositions startPositions surfaces =
             Nothing
 
         startPosition :: nextStartPositions ->
-            let
-                ( x, y ) =
-                    Pixels.inPixels startPosition
-            in
-            case Raster.get x y surfaces of
+            case Raster.get (Pixels.inPixels startPosition) surfaces of
                 Just surface ->
                     if isValidStartSurface surface then
                         checkStartPositions nextStartPositions surfaces
@@ -638,7 +626,7 @@ type alias Checkpoints =
 
 findCheckpoints : Raster Surface -> List Checkpoint
 findCheckpoints surfaces =
-    Raster.foldl
+    Raster.foldlLeaves
         updateCheckpoints
         { checkpoint1 = False
         , checkpoint2 = False

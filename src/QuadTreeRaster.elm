@@ -1,7 +1,7 @@
 module QuadTreeRaster exposing
     ( Raster, Size, init
     , set, get, getSize
-    , foldl, foldr
+    , foldl, foldr, foldlRegion, foldlLeaves, foldrLeaves
     , Token(..), serialize, deserialize
     )
 
@@ -9,7 +9,7 @@ module QuadTreeRaster exposing
 
 @docs Raster, Size, init
 @docs set, get, getSize
-@docs foldl, foldr
+@docs foldl, foldr, foldlRegion, foldlLeaves, foldrLeaves
 @docs Token, serialize, deserialize
 
 -}
@@ -89,8 +89,8 @@ type alias Location =
 
 
 {-| -}
-set : Int -> Int -> a -> Raster a -> Raster a
-set x y value ((Raster model) as raster) =
+set : ( Int, Int ) -> a -> Raster a -> Raster a
+set ( x, y ) value ((Raster model) as raster) =
     if outOfBounds x y model.size then
         raster
 
@@ -263,8 +263,8 @@ mergeQuads value node =
 
 
 {-| -}
-get : Int -> Int -> Raster a -> Maybe a
-get x y (Raster model) =
+get : ( Int, Int ) -> Raster a -> Maybe a
+get ( x, y ) (Raster model) =
     if outOfBounds x y model.size then
         Nothing
 
@@ -299,39 +299,79 @@ getValue x y quadSizes node =
 
 
 
--- FOLD --
+-- FOLD POINTS --
 
 
-foldl : (a -> b -> b) -> b -> Raster a -> b
+foldl : (( Int, Int ) -> a -> b -> b) -> b -> Raster a -> b
 foldl fn acc (Raster model) =
-    foldlHelp fn acc model.root []
+    foldlHelp ( 0, 0 ) fn acc model
 
 
-foldlHelp : (a -> b -> b) -> b -> Node a -> List (Node a) -> b
-foldlHelp fn acc node nextNodes =
-    case node of
-        BranchNode { q1, q2, q3, q4 } ->
-            foldlHelp fn acc q1 (q2 :: q3 :: q4 :: nextNodes)
+foldlHelp : ( Int, Int ) -> (( Int, Int ) -> a -> b -> b) -> b -> Model a -> b
+foldlHelp ( x, y ) fn acc model =
+    if x > model.size.width then
+        foldlHelp ( 0, y + 1 ) fn acc model
 
-        LeafNode value ->
-            case nextNodes of
-                [] ->
-                    fn value acc
+    else if y > model.size.height then
+        acc
 
-                nextNode :: otherNextNodes ->
-                    foldlHelp fn (fn value acc) nextNode otherNextNodes
+    else
+        foldlHelp
+            ( x + 1, y )
+            fn
+            (case getValue x y model.quadSizes model.root of
+                Just a ->
+                    fn ( x, y ) a acc
+
+                Nothing ->
+                    acc
+            )
+            model
 
 
-foldr : (a -> b -> b) -> b -> Raster a -> b
+foldr : (( Int, Int ) -> a -> b -> b) -> b -> Raster a -> b
 foldr fn acc (Raster model) =
-    foldrHelp fn acc model.root []
+    foldrHelp ( model.size.width - 1, model.size.height - 1 ) fn acc model
 
 
-foldrHelp : (a -> b -> b) -> b -> Node a -> List (Node a) -> b
-foldrHelp fn acc node nextNodes =
+foldrHelp : ( Int, Int ) -> (( Int, Int ) -> a -> b -> b) -> b -> Model a -> b
+foldrHelp ( x, y ) fn acc model =
+    if x < 0 then
+        foldrHelp ( model.size.width - 1, y - 1 ) fn acc model
+
+    else if y < 0 then
+        acc
+
+    else
+        foldrHelp
+            ( x - 1, y )
+            fn
+            (case getValue x y model.quadSizes model.root of
+                Just a ->
+                    fn ( x, y ) a acc
+
+                Nothing ->
+                    acc
+            )
+            model
+
+
+
+-- FOLD LEAVES --
+
+
+{-| TODO: add region to callback (Region -> a -> b -> b)
+-}
+foldlLeaves : (a -> b -> b) -> b -> Raster a -> b
+foldlLeaves fn acc (Raster model) =
+    foldlLeavesHelp fn acc model.root []
+
+
+foldlLeavesHelp : (a -> b -> b) -> b -> Node a -> List (Node a) -> b
+foldlLeavesHelp fn acc node nextNodes =
     case node of
         BranchNode { q1, q2, q3, q4 } ->
-            foldrHelp fn acc q4 (q3 :: q2 :: q1 :: nextNodes)
+            foldlLeavesHelp fn acc q1 (q2 :: q3 :: q4 :: nextNodes)
 
         LeafNode value ->
             case nextNodes of
@@ -339,7 +379,79 @@ foldrHelp fn acc node nextNodes =
                     fn value acc
 
                 nextNode :: otherNextNodes ->
-                    foldrHelp fn (fn value acc) nextNode otherNextNodes
+                    foldlLeavesHelp fn (fn value acc) nextNode otherNextNodes
+
+
+{-| TODO: add region to callback (Region -> a -> b -> b)
+-}
+foldrLeaves : (a -> b -> b) -> b -> Raster a -> b
+foldrLeaves fn acc (Raster model) =
+    foldrLeavesHelp fn acc model.root []
+
+
+foldrLeavesHelp : (a -> b -> b) -> b -> Node a -> List (Node a) -> b
+foldrLeavesHelp fn acc node nextNodes =
+    case node of
+        BranchNode { q1, q2, q3, q4 } ->
+            foldrLeavesHelp fn acc q4 (q3 :: q2 :: q1 :: nextNodes)
+
+        LeafNode value ->
+            case nextNodes of
+                [] ->
+                    fn value acc
+
+                nextNode :: otherNextNodes ->
+                    foldrLeavesHelp fn (fn value acc) nextNode otherNextNodes
+
+
+
+-- FOLD REGION --
+
+
+type alias Region =
+    { min : ( Int, Int )
+    , max : ( Int, Int )
+    }
+
+
+foldlRegion : Region -> (( Int, Int ) -> Maybe a -> b -> b) -> b -> Raster a -> b
+foldlRegion region fn acc raster =
+    let
+        ( minX, minY ) =
+            region.min
+
+        ( maxX, maxY ) =
+            region.max
+    in
+    if minX <= maxX && minY <= maxY then
+        foldlRegionHelp ( minX, minY ) region fn acc raster
+
+    else
+        acc
+
+
+foldlRegionHelp : ( Int, Int ) -> Region -> (( Int, Int ) -> Maybe a -> b -> b) -> b -> Raster a -> b
+foldlRegionHelp ( x, y ) region fn acc raster =
+    let
+        ( minX, _ ) =
+            region.min
+
+        ( maxX, maxY ) =
+            region.max
+    in
+    if x > maxX then
+        foldlRegionHelp ( minX, y + 1 ) region fn acc raster
+
+    else if y > maxY then
+        acc
+
+    else
+        foldlRegionHelp
+            ( x + 1, y )
+            region
+            fn
+            (fn ( x, y ) (get ( x, y ) raster) acc)
+            raster
 
 
 

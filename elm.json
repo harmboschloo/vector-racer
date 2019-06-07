@@ -9,6 +9,8 @@
         "VectorRacer.Grid",
         "VectorRacer.Steps",
         "VectorRacer.Track",
+        "VectorRacer.Track.Image1",
+        "VectorRacer.Track.ImageHelpers",
         "VectorRacer.Vector",
         "VectorRacer.Vector.Pixels",
         "VectorRacer.Ui",
