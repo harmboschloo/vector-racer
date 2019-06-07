@@ -20,18 +20,19 @@ fs.readFile(filename, (error, fileBuffer) => {
   const maskFrames = upng.toRGBA8(maskImage);
   const bytesString = Buffer.from(maskFrames[0]).toString("base64");
 
-  console.time("convertMaskImage");
-
   const app = Elm.Main.init({ flags: { width, height, bytesString } });
 
   app.ports.onError.subscribe(error => console.error("error", error));
+
+  app.ports.onTimings.subscribe(timings => console.log(timings));
 
   app.ports.onTrack.subscribe(track =>
     fs.writeFile("example.json", JSON.stringify(track, null, "  "), error => {
       if (error) {
         console.error("write error", error);
+      } else {
+        console.log("file written");
       }
-      console.timeEnd("convertMaskImage");
     })
   );
 });

@@ -3,6 +3,8 @@ port module Main exposing (main)
 import Base64
 import Json.Decode
 import Json.Encode
+import Task
+import Timing
 import VectorRacer.Track as Track exposing (Track)
 import VectorRacer.Vector.Pixels as Pixels
 
@@ -22,19 +24,6 @@ type alias Flags =
     }
 
 
-init : Json.Decode.Value -> ( Model, Cmd Msg )
-init flags =
-    decodeFlags flags
-        |> Result.andThen decodeTrack
-        |> resultCmd
-        |> Tuple.pair ()
-
-
-decodeFlags : Json.Decode.Value -> Result String Flags
-decodeFlags =
-    Json.Decode.decodeValue flagsDecoder >> Result.mapError Json.Decode.errorToString
-
-
 flagsDecoder : Json.Decode.Decoder Flags
 flagsDecoder =
     Json.Decode.map3 Flags
@@ -43,37 +32,46 @@ flagsDecoder =
         (Json.Decode.field "bytesString" Json.Decode.string)
 
 
-decodeTrack : Flags -> Result String Track
-decodeTrack { width, height, bytesString } =
-    Base64.toBytes bytesString
-        |> Maybe.map
-            (Track.fromMaskBytes (Pixels.pixels ( width, height ))
-                >> Result.mapError Track.maskBytesErrorToString
-            )
-        |> Maybe.withDefault (Err "Base64.toBytes failed")
-
-
-resultCmd : Result String Track -> Cmd Msg
-resultCmd result =
-    case result of
-        Ok track ->
-            onTrack (Track.encode track)
+init : Json.Decode.Value -> ( Model, Cmd Msg )
+init flags =
+    case Json.Decode.decodeValue flagsDecoder flags of
+        Ok { width, height, bytesString } ->
+            Task.succeed ( bytesString, [] )
+                |> Timing.andTime "Base64.toBytes" Base64.toBytes
+                |> Timing.andThen (Timing.maybeToTask "Base64.toBytes failed")
+                |> Timing.andTime "Track.fromMaskBytes" (Track.fromMaskBytes (Pixels.pixels ( width, height )))
+                |> Timing.map (Result.mapError Track.maskBytesErrorToString)
+                |> Timing.andThen Timing.resultToTask
+                |> Task.attempt GotResult
+                |> Tuple.pair ()
 
         Err error ->
-            onError (Json.Encode.string error)
+            ( (), error |> Json.Decode.errorToString |> Json.Encode.string |> onError )
 
 
 
 -- UPDATE --
 
 
-type alias Msg =
-    ()
+type Msg
+    = GotResult (Result String ( Track, List ( String, Int ) ))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update _ model =
-    ( model, Cmd.none )
+update msg model =
+    case msg of
+        GotResult result ->
+            ( model
+            , case result of
+                Ok ( track, timings ) ->
+                    Cmd.batch
+                        [ onTrack (Track.encode track)
+                        , onTimings (Timing.encodeList timings)
+                        ]
+
+                Err error ->
+                    onError (Json.Encode.string error)
+            )
 
 
 
@@ -81,6 +79,9 @@ update _ model =
 
 
 port onTrack : Json.Encode.Value -> Cmd msg
+
+
+port onTimings : Json.Encode.Value -> Cmd msg
 
 
 port onError : Json.Encode.Value -> Cmd msg

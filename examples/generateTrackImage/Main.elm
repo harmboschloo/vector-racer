@@ -4,6 +4,8 @@ import Base64
 import Bytes.Encode
 import Json.Decode
 import Json.Encode
+import Task
+import Timing
 import VectorRacer.Track as Track
 import VectorRacer.Track.Image1 as Image1
 import VectorRacer.Track.ImageHelpers as ImageHelpers
@@ -19,40 +21,45 @@ type alias Model =
 
 init : Json.Decode.Value -> ( Model, Cmd Msg )
 init trackJson =
-    case Json.Decode.decodeValue Track.decoder trackJson of
-        Ok (Ok track) ->
-            case
-                track
-                    |> Track.getSurfaces
-                    |> Image1.fromSurfaces
-                    |> ImageHelpers.bytesEncoder
-                    |> Bytes.Encode.encode
-                    |> Base64.fromBytes
-            of
-                Just bytesString ->
-                    ( (), bytesString |> Json.Encode.string |> onImage )
-
-                Nothing ->
-                    ( (), "Base64.fromBytes error" |> Json.Encode.string |> onError )
-
-        Ok (Err error) ->
-            ( (), error |> Track.decodeErrorToString |> Json.Encode.string |> onError )
-
-        Err error ->
-            ( (), error |> Json.Decode.errorToString |> Json.Encode.string |> onError )
+    Task.succeed ( trackJson, [] )
+        |> Timing.andTime "decode track" (Json.Decode.decodeValue Track.decoder)
+        |> Timing.map (Result.mapError Json.Decode.errorToString)
+        |> Timing.andThen Timing.resultToTask
+        |> Timing.map (Result.mapError Track.decodeErrorToString)
+        |> Timing.andThen Timing.resultToTask
+        |> Timing.map Track.getSurfaces
+        |> Timing.andTime "Image1.fromSurfaces" Image1.fromSurfaces
+        |> Timing.andTime "ImageHelpers.bytesEncoder" ImageHelpers.bytesEncoder
+        |> Timing.andTime "Bytes.Encode.encode" Bytes.Encode.encode
+        |> Timing.andTime "Base64.fromBytes" Base64.fromBytes
+        |> Timing.andThen (Timing.maybeToTask "Base64.fromBytes failed")
+        |> Task.attempt GotResult
+        |> Tuple.pair ()
 
 
 
 -- UPDATE --
 
 
-type alias Msg =
-    ()
+type Msg
+    = GotResult (Result String ( String, List ( String, Int ) ))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update _ model =
-    ( model, Cmd.none )
+update msg model =
+    case msg of
+        GotResult result ->
+            ( model
+            , case result of
+                Ok ( base64Image, timings ) ->
+                    Cmd.batch
+                        [ onImage (Json.Encode.string base64Image)
+                        , onTimings (Timing.encodeList timings)
+                        ]
+
+                Err error ->
+                    onError (Json.Encode.string error)
+            )
 
 
 
@@ -60,6 +67,9 @@ update _ model =
 
 
 port onImage : Json.Encode.Value -> Cmd msg
+
+
+port onTimings : Json.Encode.Value -> Cmd msg
 
 
 port onError : Json.Encode.Value -> Cmd msg
