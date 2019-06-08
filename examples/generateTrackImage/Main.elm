@@ -1,7 +1,5 @@
 port module Main exposing (main)
 
-import Base64
-import Bytes.Encode
 import Json.Decode
 import Json.Encode
 import Task
@@ -29,10 +27,13 @@ init trackJson =
         |> Timing.andThen Timing.resultToTask
         |> Timing.map Track.getSurfaces
         |> Timing.andTime "Image1.fromSurfaces" Image1.fromSurfaces
-        |> Timing.andTime "ImageHelpers.bytesEncoder" ImageHelpers.bytesEncoder
-        |> Timing.andTime "Bytes.Encode.encode" Bytes.Encode.encode
-        |> Timing.andTime "Base64.fromBytes" Base64.fromBytes
-        |> Timing.andThen (Timing.maybeToTask "Base64.fromBytes failed")
+        |> Timing.andTime "ImageHelpers.toBytesList" ImageHelpers.toBytesList
+        |> Timing.andTime "Json.Encode.list" (Json.Encode.list Json.Encode.int)
+        -- |> Timing.andTime "ImageHelpers.bytesEncoder" ImageHelpers.bytesEncoder
+        -- |> Timing.andTime "Bytes.Encode.encode" Bytes.Encode.encode
+        -- |> Timing.andTime "Base64.fromBytes" Base64.fromBytes
+        -- |> Timing.andThen (Timing.maybeToTask "Base64.fromBytes failed")
+        -- |> Timing.andTime "Json.Encode.string" Json.Encode.string
         |> Task.attempt GotResult
         |> Tuple.pair ()
 
@@ -42,7 +43,7 @@ init trackJson =
 
 
 type Msg
-    = GotResult (Result String ( String, List ( String, Int ) ))
+    = GotResult (Result String ( Json.Encode.Value, List ( String, Int ) ))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -51,9 +52,9 @@ update msg model =
         GotResult result ->
             ( model
             , case result of
-                Ok ( base64Image, timings ) ->
+                Ok ( image, timings ) ->
                     Cmd.batch
-                        [ onImage (Json.Encode.string base64Image)
+                        [ onImage image
                         , onTimings (Timing.encodeList timings)
                         ]
 

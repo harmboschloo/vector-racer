@@ -3,6 +3,7 @@ module VectorRacer.Track.ImageHelpers exposing
     , getAllAround
     , isOnLine
     , nextInt
+    , toBytesList
     )
 
 import Bytes.Encode
@@ -61,3 +62,8 @@ bytesEncoder image =
     image
         |> QuadTreeRaster.foldr (\_ color sequence -> Color.bytesEncoder color :: sequence) []
         |> Bytes.Encode.sequence
+
+
+toBytesList : QuadTreeRaster.Raster Color -> List Int
+toBytesList colors =
+    QuadTreeRaster.foldr (\_ color list -> color.r :: color.g :: color.b :: color.a :: list) [] colors
