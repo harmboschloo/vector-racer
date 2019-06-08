@@ -29,11 +29,6 @@ init trackJson =
         |> Timing.andTime "Image1.fromSurfaces" Image1.fromSurfaces
         |> Timing.andTime "ImageHelpers.toBytesList" ImageHelpers.toBytesList
         |> Timing.andTime "Json.Encode.list" (Json.Encode.list Json.Encode.int)
-        -- |> Timing.andTime "ImageHelpers.bytesEncoder" ImageHelpers.bytesEncoder
-        -- |> Timing.andTime "Bytes.Encode.encode" Bytes.Encode.encode
-        -- |> Timing.andTime "Base64.fromBytes" Base64.fromBytes
-        -- |> Timing.andThen (Timing.maybeToTask "Base64.fromBytes failed")
-        -- |> Timing.andTime "Json.Encode.string" Json.Encode.string
         |> Task.attempt GotResult
         |> Tuple.pair ()
 

@@ -18,7 +18,6 @@ app.ports.onTimings.subscribe(timings => console.log(timings));
 
 app.ports.onImage.subscribe(image => {
   const buffer = new Uint8Array(image).buffer;
-  // const buffer = new Uint8Array(Buffer.from(image, "base64")).buffer;
   const png = upng.encode([buffer], example.size.width, example.size.height, 0);
   fs.writeFile(
     "example.png",

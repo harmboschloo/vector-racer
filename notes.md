@@ -10,5 +10,4 @@
 - Grid.Position/Velocity/Acceleration
 - Grid.gridToTrackPosition/Velocity/Acceleration
 - Grid.trackToGridPosition/Velocity/Acceleration
-- check List/Array to ports instead of base64 string
 - MoveOptions: Raster Grid.Acceleration
