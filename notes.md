@@ -4,3 +4,11 @@
 - check QuadTreeRaster size after deserialize
 - check track images reloading on every panzoom event
 - check slugish panzoom on mobile
+- Quantity.Vector2
+- Track.Positino/Velocity/Acceleration
+- GridCoordinates
+- Grid.Position/Velocity/Acceleration
+- Grid.gridToTrackPosition/Velocity/Acceleration
+- Grid.trackToGridPosition/Velocity/Acceleration
+- check List/Array to ports instead of base64 string
+- MoveOptions: Raster Grid.Acceleration
