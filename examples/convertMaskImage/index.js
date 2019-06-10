@@ -6,9 +6,9 @@ const upng = require("upng-js");
 // @ts-ignore
 const { Elm } = require("./main");
 
-const filename = "example_mask.png";
+console.time("convertMaskImage");
 
-fs.readFile(filename, (error, fileBuffer) => {
+fs.readFile("example_mask.png", (error, fileBuffer) => {
   if (error) {
     throw error;
   }
@@ -18,9 +18,10 @@ fs.readFile(filename, (error, fileBuffer) => {
 
   /** @type {ArrayBuffer[]} */
   const maskFrames = upng.toRGBA8(maskImage);
-  const bytesString = Buffer.from(maskFrames[0]).toString("base64");
+  const maskFrameArray = new Uint8Array(maskFrames[0]);
+  const bytesArray = Array.from(maskFrameArray);
 
-  const app = Elm.Main.init({ flags: { width, height, bytesString } });
+  const app = Elm.Main.init({ flags: { width, height, bytesArray } });
 
   app.ports.onError.subscribe(error => console.error("error", error));
 
@@ -33,6 +34,7 @@ fs.readFile(filename, (error, fileBuffer) => {
       } else {
         console.log("file written");
       }
+      console.timeEnd("convertMaskImage");
     })
   );
 });

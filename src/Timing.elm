@@ -1,13 +1,13 @@
 module Timing exposing
-    ( time, andTime
-    , map, andThen, maybeToTask, resultToTask
+    ( time, map, andThen, andTime
+    , andThenMap, maybeToTask, resultToTask
     , encode, encodeList
     )
 
 {-|
 
-@docs time, andTime
-@docs map, andThen, maybeToTask, resultToTask
+@docs time, map, andThen, andTime
+@docs andThenMap, maybeToTask, resultToTask
 @docs encode, encodeList
 
 -}
@@ -30,14 +30,25 @@ time label fn =
         Time.now
 
 
+map : (a -> b) -> Task e ( a, t ) -> Task e ( b, t )
+map fn =
+    Task.map (Tuple.mapFirst fn)
+
+
+andThen :
+    (a -> Task e ( b, ( String, Int ) ))
+    -> Task e ( a, List ( String, Int ) )
+    -> Task e ( b, List ( String, Int ) )
+andThen fn =
+    Task.andThen
+        (\( a, timings ) ->
+            fn a |> Task.map (\( b, timing ) -> ( b, timings ++ [ timing ] ))
+        )
+
+
 andTime : String -> (a -> b) -> Task e ( a, List ( String, Int ) ) -> Task e ( b, List ( String, Int ) )
-andTime label fn task =
-    task
-        |> Task.andThen
-            (\( a, timings ) ->
-                time label (\() -> fn a)
-                    |> Task.map (\( b, timing ) -> ( b, timings ++ [ timing ] ))
-            )
+andTime label fn =
+    andThen (\a -> time label (\() -> fn a))
 
 
 deltaMillis : Time.Posix -> Time.Posix -> Int
@@ -49,13 +60,8 @@ deltaMillis startTime endTime =
 -- TASK HELPERS --
 
 
-map : (a -> b) -> Task e ( a, t ) -> Task e ( b, t )
-map fn =
-    Task.map (Tuple.mapFirst fn)
-
-
-andThen : (a -> Task e b) -> Task e ( a, t ) -> Task e ( b, t )
-andThen fn =
+andThenMap : (a -> Task e b) -> Task e ( a, t ) -> Task e ( b, t )
+andThenMap fn =
     Task.andThen (\( a, t ) -> fn a |> Task.map (\b -> ( b, t )))
 
 

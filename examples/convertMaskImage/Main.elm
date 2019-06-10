@@ -1,6 +1,5 @@
 port module Main exposing (main)
 
-import Base64
 import Json.Decode
 import Json.Encode
 import Task
@@ -20,7 +19,7 @@ type alias Model =
 type alias Flags =
     { width : Int
     , height : Int
-    , bytesString : String
+    , bytesList : List Int
     }
 
 
@@ -29,24 +28,21 @@ flagsDecoder =
     Json.Decode.map3 Flags
         (Json.Decode.field "width" Json.Decode.int)
         (Json.Decode.field "height" Json.Decode.int)
-        (Json.Decode.field "bytesString" Json.Decode.string)
+        (Json.Decode.field "bytesArray" (Json.Decode.list Json.Decode.int))
 
 
 init : Json.Decode.Value -> ( Model, Cmd Msg )
 init flags =
-    case Json.Decode.decodeValue flagsDecoder flags of
-        Ok { width, height, bytesString } ->
-            Task.succeed ( bytesString, [] )
-                |> Timing.andTime "Base64.toBytes" Base64.toBytes
-                |> Timing.andThen (Timing.maybeToTask "Base64.toBytes failed")
-                |> Timing.andTime "Track.fromMaskBytes" (Track.fromMaskBytes (Pixels.pixels ( width, height )))
-                |> Timing.map (Result.mapError Track.maskBytesErrorToString)
-                |> Timing.andThen Timing.resultToTask
-                |> Task.attempt GotResult
-                |> Tuple.pair ()
-
-        Err error ->
-            ( (), error |> Json.Decode.errorToString |> Json.Encode.string |> onError )
+    Task.succeed ( flags, [] )
+        |> Timing.andTime "decode flags" (Json.Decode.decodeValue flagsDecoder)
+        |> Timing.map (Result.mapError Json.Decode.errorToString)
+        |> Timing.andThenMap Timing.resultToTask
+        |> Timing.andTime "Track.fromMaskBytesList"
+            (\{ width, height, bytesList } -> Track.fromMaskBytesList (Pixels.pixels ( width, height )) bytesList)
+        |> Timing.map (Result.mapError Track.maskBytesErrorToString)
+        |> Timing.andThenMap Timing.resultToTask
+        |> Task.attempt GotResult
+        |> Tuple.pair ()
 
 
 

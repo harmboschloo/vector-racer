@@ -22,9 +22,9 @@ init trackJson =
     Task.succeed ( trackJson, [] )
         |> Timing.andTime "decode track" (Json.Decode.decodeValue Track.decoder)
         |> Timing.map (Result.mapError Json.Decode.errorToString)
-        |> Timing.andThen Timing.resultToTask
+        |> Timing.andThenMap Timing.resultToTask
         |> Timing.map (Result.mapError Track.decodeErrorToString)
-        |> Timing.andThen Timing.resultToTask
+        |> Timing.andThenMap Timing.resultToTask
         |> Timing.map Track.getSurfaces
         |> Timing.andTime "Image1.fromSurfaces" Image1.fromSurfaces
         |> Timing.andTime "ImageHelpers.toBytesList" ImageHelpers.toBytesList
