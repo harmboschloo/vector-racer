@@ -7,8 +7,8 @@ module VectorRacer.Grid exposing
     )
 
 import Pixels exposing (Pixels)
+import Quantity.Vector2 exposing (Vector2)
 import VectorRacer.Track as Track
-import VectorRacer.Vector exposing (Vector)
 
 
 type Grid
@@ -22,7 +22,7 @@ type alias Model =
 
 
 type alias Spacing =
-    Vector Int Pixels
+    Vector2 Int Pixels
 
 
 init : { anchorPoint : Track.Position, spacing : Spacing } -> Grid

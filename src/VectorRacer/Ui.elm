@@ -6,15 +6,15 @@ module VectorRacer.Ui exposing
     , trackImage
     )
 
+import Quantity.Vector2 as Vector2 exposing (Vector2)
 import Svg exposing (Svg)
 import Svg.Attributes
 import VectorRacer.Grid as Grid exposing (Grid)
-import VectorRacer.Vector as Vector exposing (Vector)
-import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
+import VectorRacer.Pixels as Pixels exposing (Pixels)
 
 
 type alias Size =
-    Vector Int Pixels
+    Vector2 Int Pixels
 
 
 grid : Grid -> Svg msg
@@ -38,8 +38,8 @@ gridWith maybeTransform gridModel =
 
         ( farPointX, farPointY ) =
             Grid.getSpacing gridModel
-                |> Vector.toFloatVector
-                |> Vector.minus (Pixels.pixels ( 0.5, 0.5 ))
+                |> Vector2.toFloatVector
+                |> Vector2.minus (Pixels.pixels ( 0.5, 0.5 ))
                 |> Pixels.inPixels
                 |> Tuple.mapBoth String.fromFloat String.fromFloat
     in

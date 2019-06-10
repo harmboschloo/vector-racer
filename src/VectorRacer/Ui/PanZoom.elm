@@ -23,8 +23,8 @@ import Html.Events.Extra.Wheel as Wheel
 import Json.Decode
 import Quantity exposing (Quantity)
 import Quantity.Interval as Interval exposing (Interval)
-import VectorRacer.Vector as Vector exposing (Vector)
-import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
+import Quantity.Vector2 as Vector2 exposing (Vector2)
+import VectorRacer.Pixels as Pixels exposing (Pixels)
 
 
 
@@ -82,7 +82,7 @@ type alias TouchData =
 
 
 type alias Point =
-    Vector Float Pixels
+    Vector2 Float Pixels
 
 
 type alias Scale =
@@ -136,7 +136,7 @@ withScale scale scaleCenter (PanZoom { config, state }) =
             getStateTransform state
 
         newState =
-            updateScale scale (scaleCenter |> Vector.plus offset) state
+            updateScale scale (scaleCenter |> Vector2.plus offset) state
     in
     PanZoom
         { config = config
@@ -158,7 +158,7 @@ getStateTransform state =
             }
 
         MouseActive { baseOffset, baseScale, down, current } ->
-            { offset = baseOffset |> Vector.plus current |> Vector.minus down
+            { offset = baseOffset |> Vector2.plus current |> Vector2.minus down
             , scale = baseScale
             }
 
@@ -167,29 +167,29 @@ getStateTransform state =
                 touchA :: touchB :: _ ->
                     let
                         distance0 =
-                            Vector.distance touchA.start touchB.start
+                            Vector2.distance touchA.start touchB.start
 
                         distance1 =
-                            Vector.distance touchA.current touchB.current
+                            Vector2.distance touchA.current touchB.current
 
                         zoom =
                             Quantity.ratio distance1 distance0
 
                         zoomVector =
-                            Vector.fromFloat zoom
+                            Vector2.fromFloat zoom
 
                         mean0 =
-                            Vector.mean touchA.start touchB.start
+                            Vector2.mean touchA.start touchB.start
 
                         mean1 =
-                            Vector.mean touchA.current touchB.current
+                            Vector2.mean touchA.current touchB.current
                     in
-                    { offset = mean1 |> Vector.minus (mean0 |> Vector.minus baseOffset |> Vector.multiplyBy zoomVector)
+                    { offset = mean1 |> Vector2.minus (mean0 |> Vector2.minus baseOffset |> Vector2.multiplyBy zoomVector)
                     , scale = baseScale |> Quantity.multiplyBy zoom
                     }
 
                 touch :: _ ->
-                    { offset = baseOffset |> Vector.plus (touch.current |> Vector.minus touch.start)
+                    { offset = baseOffset |> Vector2.plus (touch.current |> Vector2.minus touch.start)
                     , scale = baseScale
                     }
 
@@ -225,8 +225,8 @@ toLocal model point =
             getTransform model
     in
     point
-        |> Vector.minus offset
-        |> Vector.divideBy (Vector.fromQuantity scale)
+        |> Vector2.minus offset
+        |> Vector2.divideBy (Vector2.fromQuantity scale)
 
 
 
@@ -358,12 +358,12 @@ updateOffsetWithZoom : Float -> Point -> Point -> Point
 updateOffsetWithZoom zoom center offset =
     let
         offsetDiff =
-            offset |> Vector.minus center
+            offset |> Vector2.minus center
 
         offsetDiffZoomed =
-            offsetDiff |> Vector.multiplyBy (Vector.fromFloat zoom)
+            offsetDiff |> Vector2.multiplyBy (Vector2.fromFloat zoom)
     in
-    offset |> Vector.plus offsetDiffZoomed |> Vector.minus offsetDiff
+    offset |> Vector2.plus offsetDiffZoomed |> Vector2.minus offsetDiff
 
 
 resetStateWith : { offset : Point, scale : Scale } -> State -> State
@@ -435,7 +435,7 @@ getTouchOffset touches =
             Just touch.current
 
         touch1 :: touch2 :: _ ->
-            Just (Vector.mean touch1.current touch2.current)
+            Just (Vector2.mean touch1.current touch2.current)
 
 
 resetTouches : Touch.Event -> State -> State

@@ -11,15 +11,15 @@ import Html.Events.Extra.Touch as Touch
 import Http
 import Quantity
 import Quantity.Interval as Interval
+import Quantity.Vector2 as Vector2 exposing (Vector2)
 import Svg
 import Svg.Attributes
 import Task
 import VectorRacer.Grid as Grid exposing (Grid)
+import VectorRacer.Pixels as Pixels exposing (Pixels)
 import VectorRacer.Track as Track exposing (Track)
 import VectorRacer.Ui as Ui
 import VectorRacer.Ui.PanZoom as PanZoom exposing (PanZoom)
-import VectorRacer.Vector as Vector exposing (Vector)
-import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
 
 
 
@@ -38,7 +38,7 @@ type Model
 
 
 type alias WindowSize =
-    Vector Float Pixels
+    Vector2 Float Pixels
 
 
 type alias LoadedModel =
@@ -97,12 +97,12 @@ update msg model =
                         |> PanZoom.withScaleBounds (Interval.from (Quantity.float 0.5) (Quantity.float 5))
                         |> PanZoom.withOffset
                             (windowSize
-                                |> Vector.minus (Track.getSize track |> Vector.toFloatVector)
-                                |> Vector.divideBy (Vector.fromFloat 2)
+                                |> Vector2.minus (Track.getSize track |> Vector2.toFloatVector)
+                                |> Vector2.divideBy (Vector2.fromFloat 2)
                             )
                         |> PanZoom.withScale
                             (Quantity.float 1)
-                            (Vector.toFloatVector (Track.getSize track) |> Vector.divideBy (Vector.fromFloat 2))
+                            (Vector2.toFloatVector (Track.getSize track) |> Vector2.divideBy (Vector2.fromFloat 2))
                 , surface = Nothing
                 }
             , Cmd.none
@@ -140,7 +140,7 @@ updateSurface position loadedModel =
         trackPosition =
             Pixels.pixels position
                 |> PanZoom.toLocal loadedModel.panZoom
-                |> Vector.floor
+                |> Vector2.floor
     in
     ( Loaded
         { loadedModel

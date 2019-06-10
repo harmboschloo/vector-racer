@@ -6,12 +6,11 @@
     "version": "1.0.0",
     "exposed-modules": [
         "VectorRacer.Grid",
+        "VectorRacer.Pixels",
         "VectorRacer.Steps",
         "VectorRacer.Track",
         "VectorRacer.Track.Image1",
         "VectorRacer.Track.ImageHelpers",
-        "VectorRacer.Vector",
-        "VectorRacer.Vector.Pixels",
         "VectorRacer.Ui",
         "VectorRacer.Ui.PanZoom"
     ],

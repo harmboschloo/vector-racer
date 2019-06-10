@@ -37,9 +37,9 @@ import Bytes.Decode
 import Json.Decode
 import Json.Encode
 import QuadTreeRaster as Raster exposing (Raster)
+import Quantity.Vector2 exposing (Vector2)
 import VectorRacer.Color as Color exposing (Color)
-import VectorRacer.Vector exposing (Vector)
-import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
+import VectorRacer.Pixels as Pixels exposing (Pixels)
 
 
 
@@ -77,19 +77,19 @@ type Checkpoint
 
 
 type alias Size =
-    Vector Int Pixels
+    Vector2 Int Pixels
 
 
 type alias Position =
-    Vector Int Pixels
+    Vector2 Int Pixels
 
 
 type alias Velocity =
-    Vector Int Pixels.PixelsPerStep
+    Vector2 Int Pixels.PixelsPerStep
 
 
 type alias Acceleration =
-    Vector Int Pixels.PixelsPerStepSquared
+    Vector2 Int Pixels.PixelsPerStepSquared
 
 
 {-| -}

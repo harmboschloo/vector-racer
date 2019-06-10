@@ -4,8 +4,8 @@ import Json.Decode
 import Json.Encode
 import Task
 import Timing
+import VectorRacer.Pixels as Pixels
 import VectorRacer.Track as Track exposing (Track)
-import VectorRacer.Vector.Pixels as Pixels
 
 
 
