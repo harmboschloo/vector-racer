@@ -14,7 +14,7 @@ module Quantity.Vector2 exposing
     , fromInts
     , fromQuantities
     , fromQuantity
-    , mean
+    , midpoint
     , minus
     , multiplyBy
     , plus
@@ -181,9 +181,9 @@ distance (Vector a) (Vector b) =
     Quantity (sqrt ((x2 - x1) ^ 2 + (y2 - y1) ^ 2))
 
 
-mean : Vector2 Float units -> Vector2 Float units -> Vector2 Float units
-mean a b =
-    a |> plus b |> divideBy (fromFloats ( 2, 2 ))
+midpoint : Vector2 Float units -> Vector2 Float units -> Vector2 Float units
+midpoint =
+    map2 Quantity.midpoint
 
 
 round : Vector2 Float units -> Vector2 Int units

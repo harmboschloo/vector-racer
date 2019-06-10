@@ -179,10 +179,10 @@ getStateTransform state =
                             Vector2.fromFloat zoom
 
                         mean0 =
-                            Vector2.mean touchA.start touchB.start
+                            Vector2.midpoint touchA.start touchB.start
 
                         mean1 =
-                            Vector2.mean touchA.current touchB.current
+                            Vector2.midpoint touchA.current touchB.current
                     in
                     { offset = mean1 |> Vector2.minus (mean0 |> Vector2.minus baseOffset |> Vector2.multiplyBy zoomVector)
                     , scale = baseScale |> Quantity.multiplyBy zoom
@@ -435,7 +435,7 @@ getTouchOffset touches =
             Just touch.current
 
         touch1 :: touch2 :: _ ->
-            Just (Vector2.mean touch1.current touch2.current)
+            Just (Vector2.midpoint touch1.current touch2.current)
 
 
 resetTouches : Touch.Event -> State -> State
