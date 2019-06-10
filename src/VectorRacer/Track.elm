@@ -1,5 +1,5 @@
 module VectorRacer.Track exposing
-    ( Track, Surface(..), Checkpoint(..), Size
+    ( Track, Surface(..), Checkpoint(..), Size, Position, Velocity, Acceleration
     , getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
     , encode, decoder, DecodeResult, DecodeError(..), decodeErrorToString
     , fromMaskBytes, fromMaskBytesList, MaskBytesError(..), maskBytesErrorToString
@@ -12,7 +12,7 @@ module VectorRacer.Track exposing
 
 # Track
 
-@docs Track, Surface, Checkpoint, Size
+@docs Track, Surface, Checkpoint, Size, Position, Velocity, Acceleration
 @docs getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
 
 
@@ -37,7 +37,6 @@ import Bytes.Decode
 import Json.Decode
 import Json.Encode
 import QuadTreeRaster as Raster exposing (Raster)
-import VectorRacer exposing (Position)
 import VectorRacer.Color as Color exposing (Color)
 import VectorRacer.Vector exposing (Vector)
 import VectorRacer.Vector.Pixels as Pixels exposing (Pixels)
@@ -79,6 +78,18 @@ type Checkpoint
 
 type alias Size =
     Vector Int Pixels
+
+
+type alias Position =
+    Vector Int Pixels
+
+
+type alias Velocity =
+    Vector Int Pixels.PixelsPerStep
+
+
+type alias Acceleration =
+    Vector Int Pixels.PixelsPerStepSquared
 
 
 {-| -}
@@ -129,7 +140,7 @@ encode : Track -> Json.Encode.Value
 encode (Track { surfaces, startPositions }) =
     Json.Encode.object
         [ ( "size", encodeSize (Raster.getSize surfaces) )
-        , ( "startPositions", Json.Encode.list VectorRacer.encodePosition startPositions )
+        , ( "startPositions", Json.Encode.list encodePosition startPositions )
         , ( "surfaces", Json.Encode.string (serializeSurfaces surfaces) )
         ]
 
@@ -140,6 +151,11 @@ encodeSize size =
         [ ( "width", Json.Encode.int size.width )
         , ( "height", Json.Encode.int size.height )
         ]
+
+
+encodePosition : Position -> Json.Encode.Value
+encodePosition =
+    Pixels.encodePixels Json.Encode.int
 
 
 serializeSurfaces : Raster Surface -> String
@@ -254,7 +270,7 @@ dataDecoder =
     Json.Decode.map3 TrackDecodeData
         (Json.Decode.field "size" sizeDecoder)
         (Json.Decode.field "surfaces" Json.Decode.string)
-        (Json.Decode.field "startPositions" (Json.Decode.list VectorRacer.positionDecoder)
+        (Json.Decode.field "startPositions" (Json.Decode.list positionDecoder)
             |> Json.Decode.maybe
             |> Json.Decode.map (Maybe.withDefault [])
         )
@@ -265,6 +281,11 @@ sizeDecoder =
     Json.Decode.map2 Raster.Size
         (Json.Decode.field "width" Json.Decode.int)
         (Json.Decode.field "height" Json.Decode.int)
+
+
+positionDecoder : Json.Decode.Decoder Position
+positionDecoder =
+    Pixels.pixelsDecoder Json.Decode.int
 
 
 deserializeSurfaces : Raster.Size -> String -> Result DecodeError (Raster Surface)

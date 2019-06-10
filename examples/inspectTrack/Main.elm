@@ -14,7 +14,6 @@ import Quantity.Interval as Interval
 import Svg
 import Svg.Attributes
 import Task
-import VectorRacer exposing (Position)
 import VectorRacer.Grid as Grid exposing (Grid)
 import VectorRacer.Track as Track exposing (Track)
 import VectorRacer.Ui as Ui
@@ -46,7 +45,7 @@ type alias LoadedModel =
     { track : Track
     , trackImage : String
     , panZoom : PanZoom
-    , surface : Maybe ( Position, Maybe Track.Surface )
+    , surface : Maybe ( Track.Position, Maybe Track.Surface )
     }
 
 
@@ -246,7 +245,7 @@ view model =
     }
 
 
-surfaceResultToString : Maybe ( Position, Maybe Track.Surface ) -> String
+surfaceResultToString : Maybe ( Track.Position, Maybe Track.Surface ) -> String
 surfaceResultToString result =
     case result of
         Just ( position, maybeSurface ) ->
