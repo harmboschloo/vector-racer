@@ -2,7 +2,7 @@ module VectorRacer.Track exposing
     ( Track, Surface(..), Checkpoint(..), Size
     , getSize, getSurface, getCheckpoints, getCheckpointsList, getStartPositions
     , encode, decoder, DecodeResult, DecodeError(..), decodeErrorToString
-    , fromMaskBytes, MaskBytesError(..), maskBytesErrorToString
+    , fromMaskBytes, fromMaskBytesList, MaskBytesError(..), maskBytesErrorToString
     , getSurfaces, fromSurfaces
     , SurfacesError(..)
     )
@@ -23,7 +23,7 @@ module VectorRacer.Track exposing
 
 # Mask
 
-@docs fromMaskBytes, MaskBytesError, maskBytesErrorToString
+@docs fromMaskBytes, fromMaskBytesList, MaskBytesError, maskBytesErrorToString
 
 
 # Surfaces
@@ -392,26 +392,26 @@ maskBytesErrorToString error =
 {-| -}
 fromMaskBytes : Size -> Bytes -> Result MaskBytesError Track
 fromMaskBytes size maskBytes =
-    case Bytes.Decode.decode (maskBytesDecoder size) maskBytes of
-        Just (Ok { surfaces, checkpoints, startPositions }) ->
-            case checkpointsToList checkpoints of
-                [] ->
-                    Err NoMaskCheckpointsError
+    maskBytes
+        |> Bytes.Decode.decode (maskBytesDecoder size)
+        |> Maybe.map (Result.andThen maskBytesDataToTrack)
+        |> Maybe.withDefault (Err BytesDecodeError)
 
-                first :: others ->
-                    Ok
-                        (Track
-                            { surfaces = surfaces
-                            , checkpoints = ( first, others )
-                            , startPositions = startPositions
-                            }
-                        )
 
-        Just (Err error) ->
-            Err error
+maskBytesDataToTrack : MaskBytesData -> Result MaskBytesError Track
+maskBytesDataToTrack { surfaces, checkpoints, startPositions } =
+    case checkpointsToList checkpoints of
+        [] ->
+            Err NoMaskCheckpointsError
 
-        Nothing ->
-            Err BytesDecodeError
+        first :: others ->
+            Ok
+                (Track
+                    { surfaces = surfaces
+                    , checkpoints = ( first, others )
+                    , startPositions = startPositions
+                    }
+                )
 
 
 maskBytesDecoder : Size -> Bytes.Decode.Decoder MaskBytesResult
@@ -484,6 +484,89 @@ maskBytesLoop ( index, { surfaces, checkpoints, startPositions } as data ) =
 
     else
         Bytes.Decode.succeed (Bytes.Decode.Done (Ok data))
+
+
+{-| -}
+fromMaskBytesList : Size -> List Int -> Result MaskBytesError Track
+fromMaskBytesList size maskBytesList =
+    let
+        ( width, height ) =
+            Pixels.inPixels size
+    in
+    maskBytesList
+        |> fromMaskBytesListHelp
+            ( 0
+            , { surfaces =
+                    Raster.init
+                        { width = width
+                        , height = height
+                        }
+                        Wall
+              , checkpoints =
+                    { checkpoint1 = False
+                    , checkpoint2 = False
+                    , checkpoint3 = False
+                    , checkpoint4 = False
+                    , checkpoint5 = False
+                    }
+              , startPositions = []
+              }
+            )
+        |> Result.andThen maskBytesDataToTrack
+
+
+fromMaskBytesListHelp : ( Int, MaskBytesData ) -> List Int -> Result MaskBytesError MaskBytesData
+fromMaskBytesListHelp ( index, data ) bytes =
+    let
+        size =
+            Raster.getSize data.surfaces
+    in
+    case bytes of
+        [] ->
+            if index == (size.width * size.height) then
+                Ok data
+
+            else
+                Err BytesDecodeError
+
+        r :: g :: b :: a :: remainingBytes ->
+            let
+                position =
+                    indexToPosition size index
+
+                color =
+                    { r = r
+                    , g = g
+                    , b = b
+                    , a = a
+                    }
+            in
+            case colorToSurface color of
+                TrackSurface surface ->
+                    fromMaskBytesListHelp
+                        ( index + 1
+                        , { surfaces = updateMaskSurfaceRaster position surface data.surfaces
+                          , checkpoints = updateCheckpoints surface data.checkpoints
+                          , startPositions = data.startPositions
+                          }
+                        )
+                        remainingBytes
+
+                StartPointSurface ->
+                    fromMaskBytesListHelp
+                        ( index + 1
+                        , { surfaces = updateMaskSurfaceRaster position Road data.surfaces
+                          , checkpoints = data.checkpoints
+                          , startPositions = position :: data.startPositions
+                          }
+                        )
+                        remainingBytes
+
+                InvalidMaskSurface ->
+                    Err (InvalidMaskSurfaceError position color)
+
+        _ ->
+            Err BytesDecodeError
 
 
 indexToPosition : Raster.Size -> Int -> Position
