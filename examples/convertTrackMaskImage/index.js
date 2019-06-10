@@ -6,7 +6,7 @@ const upng = require("upng-js");
 // @ts-ignore
 const { Elm } = require("./main");
 
-console.time("convertMaskImage");
+console.time("convertTrackMaskImage");
 
 fs.readFile("example_mask.png", (error, fileBuffer) => {
   if (error) {
@@ -34,7 +34,7 @@ fs.readFile("example_mask.png", (error, fileBuffer) => {
       } else {
         console.log("file written");
       }
-      console.timeEnd("convertMaskImage");
+      console.timeEnd("convertTrackMaskImage");
     })
   );
 });
