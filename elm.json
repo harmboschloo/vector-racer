@@ -6,6 +6,7 @@
     "version": "1.0.0",
     "exposed-modules": [
         "VectorRacer.Grid",
+        "VectorRacer.GridCoordinates",
         "VectorRacer.Pixels",
         "VectorRacer.Steps",
         "VectorRacer.Track",
