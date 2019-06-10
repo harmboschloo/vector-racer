@@ -14,6 +14,10 @@ module Quantity.Vector2 exposing
     , fromInts
     , fromQuantities
     , fromQuantity
+    , map
+    , map2
+    , map3
+    , map4
     , midpoint
     , minus
     , multiplyBy
@@ -38,7 +42,7 @@ import Quantity exposing (Quantity(..))
 
 
 type Vector2 number units
-    = Vector
+    = Vector2
         { x : Quantity number units
         , y : Quantity number units
         }
@@ -46,7 +50,7 @@ type Vector2 number units
 
 fromQuantities : ( Quantity number units, Quantity number units ) -> Vector2 number units
 fromQuantities ( x, y ) =
-    Vector
+    Vector2
         { x = x
         , y = y
         }
@@ -54,14 +58,14 @@ fromQuantities ( x, y ) =
 
 fromQuantity : Quantity number units -> Vector2 number units
 fromQuantity value =
-    Vector
+    Vector2
         { x = value
         , y = value
         }
 
 
 toQuantities : Vector2 number units -> ( Quantity number units, Quantity number units )
-toQuantities (Vector { x, y }) =
+toQuantities (Vector2 { x, y }) =
     ( x, y )
 
 
@@ -71,7 +75,7 @@ fromComponents fn ( x, y ) =
 
 
 toComponents : (Quantity number units -> number) -> Vector2 number units -> ( number, number )
-toComponents fn (Vector { x, y }) =
+toComponents fn (Vector2 { x, y }) =
     ( fn x, fn y )
 
 
@@ -110,8 +114,8 @@ fromInt value =
 
 
 map : (Quantity number1 units1 -> Quantity number2 units2) -> Vector2 number1 units1 -> Vector2 number2 units2
-map fn (Vector a) =
-    Vector
+map fn (Vector2 a) =
+    Vector2
         { x = fn a.x
         , y = fn a.y
         }
@@ -122,10 +126,42 @@ map2 :
     -> Vector2 number1 units1
     -> Vector2 number2 units2
     -> Vector2 number3 units3
-map2 fn (Vector a) (Vector b) =
-    Vector
+map2 fn (Vector2 a) (Vector2 b) =
+    Vector2
         { x = fn a.x b.x
         , y = fn a.y b.y
+        }
+
+
+map3 :
+    (Quantity number1 units1 -> Quantity number2 units2 -> Quantity number3 units3 -> Quantity number4 units4)
+    -> Vector2 number1 units1
+    -> Vector2 number2 units2
+    -> Vector2 number3 units3
+    -> Vector2 number4 units4
+map3 fn (Vector2 a) (Vector2 b) (Vector2 c) =
+    Vector2
+        { x = fn a.x b.x c.x
+        , y = fn a.y b.y c.y
+        }
+
+
+map4 :
+    (Quantity number1 units1
+     -> Quantity number2 units2
+     -> Quantity number3 units3
+     -> Quantity number4 units4
+     -> Quantity number5 units5
+    )
+    -> Vector2 number1 units1
+    -> Vector2 number2 units2
+    -> Vector2 number3 units3
+    -> Vector2 number4 units4
+    -> Vector2 number5 units5
+map4 fn (Vector2 a) (Vector2 b) (Vector2 c) (Vector2 d) =
+    Vector2
+        { x = fn a.x b.x c.x d.x
+        , y = fn a.y b.y c.y d.y
         }
 
 
@@ -164,7 +200,7 @@ divideQuantityByInt (Quantity b) (Quantity a) =
 
 
 distance : Vector2 Float units -> Vector2 Float units -> Quantity Float units
-distance (Vector a) (Vector b) =
+distance (Vector2 a) (Vector2 b) =
     let
         (Quantity x1) =
             a.x
@@ -215,7 +251,7 @@ toFloatVector =
 
 
 encode : (Quantity number units -> Json.Encode.Value) -> Vector2 number units -> Json.Encode.Value
-encode encodeQuantity (Vector vector) =
+encode encodeQuantity (Vector2 vector) =
     Json.Encode.object
         [ ( "x", encodeQuantity vector.x )
         , ( "y", encodeQuantity vector.y )
